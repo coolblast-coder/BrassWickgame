@@ -27,6 +27,9 @@ var town_hall: Building:
 		town_hall = value
 		buildings_changed.emit()
 
+## Every building and road tile on the map, in the order they were placed.
+var all_buildings: Array[Building] = []
+
 ## Which building stands on which cell. A multi-tile building appears once per
 ## cell it covers.
 var _occupancy: Dictionary[Vector2i, Building] = {}
@@ -73,6 +76,7 @@ func can_place(cells: Array[Vector2i]) -> bool:
 func add_building(building: Building) -> void:
 	for cell in building.cells():
 		_occupancy[cell] = building
+	all_buildings.append(building)
 	buildings_changed.emit()
 
 
@@ -81,6 +85,7 @@ func remove_building(building: Building) -> void:
 	for cell in building.cells():
 		if _occupancy.get(cell) == building:
 			_occupancy.erase(cell)
+	all_buildings.erase(building)
 	buildings_changed.emit()
 
 

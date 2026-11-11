@@ -19,7 +19,15 @@ enum Style { TENEMENT, GLASSHOUSE, COAL_PIT, BRASSWORKS, MECHANIC_YARD, TEA_GARD
 ## False for things the player must not remove (the Town Hall).
 @export var demolishable: bool = true
 
-@export_group("Economy (unused until the simulation milestone)")
+@export_group("Economy")
 @export var cost: int = 0
+## Citizens this building can house.
+@export var housing: int = 0
+## Workers needed for full output.
 @export var workers: int = 0
+## Coal burned per day while connected to the road network.
 @export var coal_per_day: int = 0
+## Daily output at full staff. Short-staffed buildings produce in proportion.
+@export var food_output: int = 0
+@export var coal_output: int = 0
+@export var crowns_output: int = 0

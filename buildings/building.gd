@@ -13,6 +13,11 @@ var rotation_steps: int = 0
 ## Whether this building is served by the Town Hall's road network.
 ## Kept up to date by Main through set_road_access().
 var road_access: bool = true
+## Workers assigned to this building by the last daily simulation.
+var staff: int = 0
+## False if this building needed Coal on the last simulated day and got none:
+## a cold home, or a machine that stopped.
+var fuelled: bool = true
 
 var _model: Node3D
 ## Shown above buildings the road network does not reach; created on first need.

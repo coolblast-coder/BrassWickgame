@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://grid/tile_cursor.gd" id="4_cursor"]
 [ext_resource type="PackedScene" path="res://ui/hud.tscn" id="5_hud"]
 [ext_resource type="Script" path="res://build/build_controller.gd" id="6_build"]
+[ext_resource type="Script" path="res://sim/game_clock.gd" id="7_clock"]
 
 [sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
 sky_top_color = Color(0.45, 0.47, 0.5, 1)
@@ -49,6 +50,9 @@ script = ExtResource("4_cursor")
 
 [node name="CameraRig" parent="." instance=ExtResource("2_cam")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 64, 0, 64)
+
+[node name="GameClock" type="Node" parent="."]
+script = ExtResource("7_clock")
 
 [node name="BuildController" type="Node" parent="."]
 script = ExtResource("6_build")

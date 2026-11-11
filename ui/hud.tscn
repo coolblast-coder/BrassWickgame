@@ -2,17 +2,49 @@
 
 [ext_resource type="Script" path="res://ui/hud.gd" id="1_hud"]
 [ext_resource type="Script" path="res://ui/build_bar.gd" id="2_bar"]
+[ext_resource type="Script" path="res://ui/top_bar.gd" id="3_top"]
+[ext_resource type="Script" path="res://ui/info_panel.gd" id="4_info"]
 
 [node name="HUD" type="CanvasLayer"]
 script = ExtResource("1_hud")
 
+[node name="TopBar" type="PanelContainer" parent="."]
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 40.0
+grow_horizontal = 2
+script = ExtResource("3_top")
+
 [node name="CellLabel" type="Label" parent="."]
 anchors_preset = 0
 offset_left = 12.0
-offset_top = 10.0
+offset_top = 50.0
 offset_right = 220.0
-offset_bottom = 36.0
+offset_bottom = 76.0
 text = "Tile: -"
+
+[node name="WarningLabel" type="Label" parent="."]
+modulate = Color(1, 0.5, 0.42, 1)
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -20.0
+offset_top = 50.0
+offset_right = 20.0
+offset_bottom = 76.0
+grow_horizontal = 2
+horizontal_alignment = 1
+
+[node name="InfoPanel" type="PanelContainer" parent="."]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -52.0
+offset_top = 50.0
+offset_right = -12.0
+offset_bottom = 90.0
+grow_horizontal = 0
+script = ExtResource("4_info")
 
 [node name="HintLabel" type="Label" parent="."]
 anchors_preset = 7
