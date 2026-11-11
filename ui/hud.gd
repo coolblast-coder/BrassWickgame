@@ -20,7 +20,10 @@ func show_build_mode(mode: BuildController.Mode, def: BuildingDef) -> void:
 	build_bar.set_demolishing(mode == BuildController.Mode.DEMOLISHING)
 	match mode:
 		BuildController.Mode.PLACING:
-			_hint_label.text = "%s   |   R: rotate   |   Right click / Esc: cancel" % def.display_name
+			if def.is_road:
+				_hint_label.text = "Road   |   Click and drag to lay   |   Right click / Esc: cancel"
+			else:
+				_hint_label.text = "%s   |   R: rotate   |   Right click / Esc: cancel" % def.display_name
 		BuildController.Mode.DEMOLISHING:
 			_hint_label.text = "Demolish   |   Left click: remove   |   Right click / Esc: cancel"
 		_:

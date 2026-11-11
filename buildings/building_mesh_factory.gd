@@ -9,6 +9,8 @@ extends RefCounted
 
 ## Gap left between the model and the edge of its footprint, in world units.
 const MARGIN := 0.15
+## Thickness of a road slab, in world units.
+const ROAD_HEIGHT := 0.1
 
 const BRASS := Color(0.78, 0.6, 0.25)
 const SOOT := Color(0.13, 0.12, 0.12)
@@ -39,6 +41,12 @@ static func build(def: BuildingDef) -> Node3D:
 			_mechanic_yard(root, w, d, def.color)
 		BuildingDef.Style.TEA_GARDEN:
 			_tea_garden(root, w, d, def.color)
+		BuildingDef.Style.TOWN_HALL:
+			_town_hall(root, w, d, def.color)
+		BuildingDef.Style.ROAD:
+			# Full tile, no margin, so neighbouring road tiles join up.
+			_box(root, Vector3(w + MARGIN * 2.0, ROAD_HEIGHT, d + MARGIN * 2.0),
+					Vector3(0.0, ROAD_HEIGHT * 0.5, 0.0), def.color)
 		_:
 			_box(root, Vector3(w, 2.0, d), Vector3(0.0, 1.0, 0.0), def.color)
 	return root
@@ -126,6 +134,19 @@ static func _tea_garden(root: Node3D, w: float, d: float, color: Color) -> void:
 		_capsule(root, 0.45, 1.3, Vector3(x, 1.5, z), color.darkened(0.25))
 
 
+static func _town_hall(root: Node3D, w: float, d: float, color: Color) -> void:
+	var h := 3.6
+	_box(root, Vector3(w, h, d), Vector3(0.0, h * 0.5, 0.0), color)
+	_box(root, Vector3(w + 0.1, 0.2, d + 0.1), Vector3(0.0, h + 0.1, 0.0), SLATE)
+	_box(root, Vector3(1.6, 2.2, 0.1), Vector3(0.0, 1.1, d * 0.5 + 0.03), WOOD)
+	# Clock tower with a brass spire.
+	var tower_base := h + 0.2
+	_box(root, Vector3(1.6, 4.0, 1.6), Vector3(0.0, tower_base + 2.0, 0.0), color)
+	var clock := _cylinder(root, 0.55, 0.1, Vector3(0.0, tower_base + 3.0, 0.83), BRASS, 0.7)
+	clock.rotation.x = PI * 0.5
+	_cylinder(root, 1.2, 1.8, Vector3(0.0, tower_base + 4.9, 0.0), BRASS, 0.7, 0.0)
+
+
 # --- Primitive helpers --------------------------------------------------------
 # `center` is the middle of the shape, in the model's local space.
 
@@ -160,12 +181,13 @@ static func _add(root: Node3D, mesh: Mesh, center: Vector3, color: Color,
 	var instance := MeshInstance3D.new()
 	instance.mesh = mesh
 	instance.position = center
-	instance.material_override = _material(color, metallic)
+	instance.material_override = get_material(color, metallic)
 	root.add_child(instance)
 	return instance
 
 
-static func _material(color: Color, metallic: float) -> StandardMaterial3D:
+## Shared, cached material for a colour. Do not modify the returned material.
+static func get_material(color: Color, metallic: float = 0.0) -> StandardMaterial3D:
 	var key := "%s|%.2f" % [color.to_html(), metallic]
 	if _materials.has(key):
 		return _materials[key]

@@ -6,8 +6,8 @@ extends MeshInstance3D
 
 signal cell_changed(cell: Vector2i, in_bounds: bool)
 
-## Height above the ground, to avoid flickering against the ground plane.
-const HOVER_HEIGHT := 0.05
+## Height above the ground: just above road slabs, so it stays visible on them.
+const HOVER_HEIGHT := 0.14
 
 ## The cell under the mouse. Only meaningful while `in_bounds` is true.
 var cell: Vector2i = Vector2i(-1, -1)

@@ -10,7 +10,7 @@ enum Mode { IDLE, PLACING, DEMOLISHING }
 const GHOST_VALID := Color(0.35, 0.9, 0.4, 0.55)
 const GHOST_BLOCKED := Color(0.95, 0.25, 0.2, 0.55)
 ## Height of the footprint pad above the ground, to avoid flickering.
-const PAD_HEIGHT := 0.06
+const PAD_HEIGHT := 0.15
 
 var mode: Mode = Mode.IDLE
 ## The building being placed; null unless mode is PLACING.
@@ -27,8 +27,30 @@ var _ghost_material: StandardMaterial3D
 var _demolish_target: Building
 var _demolish_material: StandardMaterial3D
 
+# Road dragging: press on a tile, drag, release to lay the whole line.
+var _dragging: bool = false
+var _drag_start: Vector2i
+var _drag_end: Vector2i
+var _drag_cells: Array[Vector2i] = []
+## Parent of the per-tile preview pads shown while dragging.
+var _drag_preview: Node3D
+var _drag_tile_mesh: PlaneMesh
+var _drag_valid_material: StandardMaterial3D
+var _drag_blocked_material: StandardMaterial3D
+
 
 func _ready() -> void:
+	_drag_preview = Node3D.new()
+	_drag_preview.name = "DragPreview"
+	add_child(_drag_preview)
+	_drag_tile_mesh = PlaneMesh.new()
+	_drag_tile_mesh.size = Vector2.ONE * CityGrid.TILE_SIZE
+	_drag_valid_material = StandardMaterial3D.new()
+	_drag_valid_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_drag_valid_material.albedo_color = GHOST_VALID
+	_drag_blocked_material = StandardMaterial3D.new()
+	_drag_blocked_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_drag_blocked_material.albedo_color = GHOST_BLOCKED
 	_demolish_material = StandardMaterial3D.new()
 	_demolish_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	_demolish_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -46,13 +68,18 @@ func setup(grid: CityGrid, cursor: TileCursor, buildings_root: Node3D) -> void:
 
 
 func _process(_delta: float) -> void:
+	_update_drag()
 	_update_ghost()
 	_update_demolish_target()
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("build_cancel"):
-		if mode != Mode.IDLE:
+		if _dragging:
+			# Abandon the line being dragged, but keep Road picked.
+			_end_drag()
+			get_viewport().set_input_as_handled()
+		elif mode != Mode.IDLE:
 			cancel()
 			get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("build_rotate"):
@@ -64,12 +91,15 @@ func _unhandled_input(event: InputEvent) -> void:
 		# Clicks on HUD buttons never get here; the UI consumes them first.
 		if event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 			if mode == Mode.PLACING:
-				try_place()
+				if selected_def.is_road:
+					_begin_drag()
+				else:
+					try_place()
 			elif mode == Mode.DEMOLISHING:
 				try_demolish()
 	elif event is InputEventKey and event.pressed and not event.echo:
-		# Number keys: 1 is reserved for Road, 2 onwards pick from the catalog.
-		var slot: int = event.physical_keycode - KEY_2
+		# Number keys 1 to 7 pick from the catalog, in build-bar order.
+		var slot: int = event.physical_keycode - KEY_1
 		if slot >= 0 and slot < BuildingCatalog.all().size():
 			select_slot(slot)
 
@@ -158,18 +188,99 @@ func can_place_here() -> bool:
 func try_place() -> bool:
 	if not can_place_here():
 		return false
+	place_building(selected_def, placement_origin(), rotation_steps)
+	return true
+
+
+## The tiles a road dragged from `from` to `to` covers: a straight line, or an
+## L that runs along the longer side first.
+static func road_path(from: Vector2i, to: Vector2i) -> Array[Vector2i]:
+	var cells: Array[Vector2i] = [from]
+	var delta := to - from
+	var step := delta.sign()
+	var x_first := absi(delta.x) >= absi(delta.y)
+	var cell := from
+	for leg in 2:
+		var along_x := (leg == 0) == x_first
+		var count := absi(delta.x) if along_x else absi(delta.y)
+		for i in count:
+			cell += Vector2i(step.x, 0) if along_x else Vector2i(0, step.y)
+			cells.append(cell)
+	return cells
+
+
+## Put a building on the map and return it. The caller has already checked
+## that it fits.
+func place_building(def: BuildingDef, origin: Vector2i, steps: int) -> Building:
 	var building := Building.new()
-	building.setup(selected_def, placement_origin(), rotation_steps)
+	building.setup(def, origin, steps)
 	_buildings_root.add_child(building)
 	_grid.add_building(building)
-	return true
+	return building
+
+
+func _begin_drag() -> void:
+	if not _cursor.in_bounds:
+		return
+	_dragging = true
+	_drag_start = _cursor.cell
+	_drag_cells = [_drag_start]
+	_drag_end = _drag_start
+	_rebuild_drag_preview()
+
+
+func _update_drag() -> void:
+	if not _dragging:
+		return
+	# Polling the button (instead of waiting for a release event) also catches
+	# releases that happen over the HUD or outside the window.
+	if not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+		_finish_drag()
+		return
+	var end := _cursor.cell.clamp(Vector2i.ZERO, CityGrid.SIZE - Vector2i.ONE)
+	if end == _drag_end:
+		return
+	_drag_end = end
+	_drag_cells = road_path(_drag_start, _drag_end)
+	_rebuild_drag_preview()
+
+
+## Lay a road on every free tile of the dragged line; blocked tiles are skipped.
+func _finish_drag() -> void:
+	for cell in _drag_cells:
+		var one: Array[Vector2i] = [cell]
+		if _grid.can_place(one):
+			place_building(selected_def, cell, 0)
+	_end_drag()
+
+
+func _end_drag() -> void:
+	_dragging = false
+	_drag_cells = []
+	for child in _drag_preview.get_children():
+		child.queue_free()
+
+
+func _rebuild_drag_preview() -> void:
+	for child in _drag_preview.get_children():
+		child.queue_free()
+	for cell in _drag_cells:
+		var occupant := _grid.building_at(cell)
+		if occupant != null and occupant.def.is_road:
+			continue  # Crossing an existing road is fine; nothing to show.
+		var pad := MeshInstance3D.new()
+		pad.mesh = _drag_tile_mesh
+		pad.material_override = _drag_valid_material if occupant == null else _drag_blocked_material
+		pad.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		pad.position = CityGrid.cell_center(cell) + Vector3(0.0, PAD_HEIGHT, 0.0)
+		_drag_preview.add_child(pad)
 
 
 func _update_ghost() -> void:
 	if mode != Mode.PLACING or _ghost == null:
 		return
-	_ghost.visible = _cursor.in_bounds
-	if _cursor.in_bounds:
+	_ghost.visible = _cursor.in_bounds and not _dragging
+	if _ghost.visible:
 		_ghost.transform = Building.transform_for(selected_def, placement_origin(), rotation_steps)
 		_ghost_material.albedo_color = GHOST_VALID if can_place_here() else GHOST_BLOCKED
 
@@ -177,7 +288,10 @@ func _update_ghost() -> void:
 func _update_demolish_target() -> void:
 	if mode != Mode.DEMOLISHING:
 		return
-	_set_demolish_target(_grid.building_at(_cursor.cell) if _cursor.in_bounds else null)
+	var target: Building = _grid.building_at(_cursor.cell) if _cursor.in_bounds else null
+	if target != null and not target.def.demolishable:
+		target = null  # e.g. the Town Hall
+	_set_demolish_target(target)
 
 
 func _set_demolish_target(building: Building) -> void:
@@ -207,7 +321,9 @@ func _make_ghost(def: BuildingDef) -> Node3D:
 	return ghost
 
 
+## Drops the ghost and any road line being dragged (every mode change does both).
 func _clear_ghost() -> void:
+	_end_drag()
 	if _ghost != null:
 		_ghost.queue_free()
 		_ghost = null

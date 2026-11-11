@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="BuildingDef" format=3]
+
+[ext_resource type="Script" path="res://buildings/building_def.gd" id="1_def"]
+
+[resource]
+script = ExtResource("1_def")
+id = &"town_hall"
+display_name = "Town Hall"
+footprint = Vector2i(3, 3)
+style = 7
+color = Color(0.78, 0.72, 0.62, 1)
+demolishable = false
+cost = 0
+workers = 0
+coal_per_day = 0

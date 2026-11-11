@@ -11,13 +11,9 @@ var _demolish_button: Button
 
 
 func _ready() -> void:
-	var road := _make_button("1  Road")
-	road.disabled = true
-	road.tooltip_text = "Roads arrive in the next milestone"
-
 	var defs := BuildingCatalog.all()
 	for i in defs.size():
-		var button := _make_button("%d  %s" % [i + 2, defs[i].display_name])
+		var button := _make_button("%d  %s" % [i + 1, defs[i].display_name])
 		button.toggle_mode = true
 		button.pressed.connect(func() -> void: slot_pressed.emit(i))
 		_buttons.append(button)

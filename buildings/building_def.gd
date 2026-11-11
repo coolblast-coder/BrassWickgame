@@ -4,7 +4,8 @@ extends Resource
 ## res://buildings/defs/. Numbers come from the design doc and are tuning values.
 
 ## Which placeholder model BuildingMeshFactory assembles for this building.
-enum Style { TENEMENT, GLASSHOUSE, COAL_PIT, BRASSWORKS, MECHANIC_YARD, TEA_GARDEN }
+## New styles go at the end: the .tres files store the number, not the name.
+enum Style { TENEMENT, GLASSHOUSE, COAL_PIT, BRASSWORKS, MECHANIC_YARD, TEA_GARDEN, ROAD, TOWN_HALL }
 
 @export var id: StringName
 @export var display_name: String = ""
@@ -13,6 +14,10 @@ enum Style { TENEMENT, GLASSHOUSE, COAL_PIT, BRASSWORKS, MECHANIC_YARD, TEA_GARD
 @export var style: Style = Style.TENEMENT
 ## Main colour of the placeholder model.
 @export var color: Color = Color.WHITE
+## Roads carry the connection to the Town Hall and can be laid by dragging.
+@export var is_road: bool = false
+## False for things the player must not remove (the Town Hall).
+@export var demolishable: bool = true
 
 @export_group("Economy (unused until the simulation milestone)")
 @export var cost: int = 0

@@ -3,6 +3,7 @@ extends RefCounted
 ## The list of buildable things, in build-bar order.
 
 const PATHS: Array[String] = [
+	"res://buildings/defs/road.tres",
 	"res://buildings/defs/tenement.tres",
 	"res://buildings/defs/glasshouse.tres",
 	"res://buildings/defs/coal_pit.tres",
