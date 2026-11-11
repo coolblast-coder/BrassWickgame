@@ -10,12 +10,17 @@
 [ext_resource type="Script" path="res://overlays/overlay_view.gd" id="8_overlay"]
 [ext_resource type="Script" path="res://decor/walkers.gd" id="9_walkers"]
 [ext_resource type="Script" path="res://decor/airships.gd" id="10_airships"]
+[ext_resource type="Script" path="res://decor/hills.gd" id="11_hills"]
+[ext_resource type="Script" path="res://decor/vegetation.gd" id="12_vegetation"]
 
 [sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
-sky_top_color = Color(0.45, 0.47, 0.5, 1)
-sky_horizon_color = Color(0.7, 0.64, 0.55, 1)
-ground_bottom_color = Color(0.2, 0.18, 0.16, 1)
-ground_horizon_color = Color(0.7, 0.64, 0.55, 1)
+sky_top_color = Color(0.36, 0.5, 0.66, 1)
+sky_horizon_color = Color(0.82, 0.76, 0.66, 1)
+sky_curve = 0.12
+ground_bottom_color = Color(0.3, 0.3, 0.24, 1)
+ground_horizon_color = Color(0.82, 0.76, 0.66, 1)
+sun_angle_max = 40.0
+sun_curve = 0.1
 
 [sub_resource type="Sky" id="sky"]
 sky_material = SubResource("sky_mat")
@@ -23,7 +28,25 @@ sky_material = SubResource("sky_mat")
 [sub_resource type="Environment" id="env"]
 background_mode = 2
 sky = SubResource("sky")
+ambient_light_source = 3
+ambient_light_energy = 0.9
 tonemap_mode = 2
+tonemap_white = 1.4
+ssao_enabled = true
+ssao_radius = 2.0
+ssao_intensity = 1.5
+glow_enabled = true
+glow_intensity = 0.4
+glow_bloom = 0.05
+fog_enabled = true
+fog_light_color = Color(0.8, 0.75, 0.66, 1)
+fog_sun_scatter = 0.15
+fog_density = 0.0022
+fog_aerial_perspective = 0.5
+fog_sky_affect = 0.25
+adjustment_enabled = true
+adjustment_contrast = 1.05
+adjustment_saturation = 1.12
 
 [sub_resource type="PlaneMesh" id="ground_mesh"]
 size = Vector2(128, 128)
@@ -39,12 +62,23 @@ environment = SubResource("env")
 
 [node name="Sun" type="DirectionalLight3D" parent="."]
 transform = Transform3D(0.866025, -0.409576, 0.286788, 0, 0.573576, 0.819152, -0.5, -0.709406, 0.496732, 0, 20, 0)
+light_color = Color(1, 0.93, 0.8, 1)
+light_energy = 1.25
 shadow_enabled = true
+shadow_blur = 1.5
+directional_shadow_blend_splits = true
+directional_shadow_max_distance = 300.0
 
 [node name="GridView" type="MeshInstance3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 64, 0, 64)
 mesh = SubResource("ground_mesh")
 surface_material_override/0 = SubResource("ground_mat")
+
+[node name="Hills" type="MeshInstance3D" parent="."]
+script = ExtResource("11_hills")
+
+[node name="Vegetation" type="Node3D" parent="."]
+script = ExtResource("12_vegetation")
 
 [node name="TileCursor" type="MeshInstance3D" parent="."]
 script = ExtResource("4_cursor")

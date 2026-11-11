@@ -23,6 +23,8 @@ var _game_over: bool = false
 @onready var _overlay: OverlayView = $OverlayView
 @onready var _walkers: Walkers = $Walkers
 @onready var _airships: Airships = $Airships
+@onready var _hills: Hills = $Hills
+@onready var _vegetation: Vegetation = $Vegetation
 
 
 func _ready() -> void:
@@ -47,6 +49,7 @@ func _ready() -> void:
 	_clock.day_ended.connect(_on_day_ended)
 	grid.buildings_changed.connect(func() -> void: _road_access_dirty = true)
 	_place_town_hall()
+	_vegetation.setup(grid, _hills)
 
 
 func _process(_delta: float) -> void:
