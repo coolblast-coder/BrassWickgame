@@ -1,0 +1,56 @@
+[gd_scene format=3]
+
+[ext_resource type="Shader" path="res://grid/grid.gdshader" id="1_grid"]
+[ext_resource type="PackedScene" path="res://camera/camera_rig.tscn" id="2_cam"]
+[ext_resource type="Script" path="res://main/main.gd" id="3_main"]
+[ext_resource type="Script" path="res://grid/tile_cursor.gd" id="4_cursor"]
+[ext_resource type="PackedScene" path="res://ui/hud.tscn" id="5_hud"]
+[ext_resource type="Script" path="res://build/build_controller.gd" id="6_build"]
+
+[sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
+sky_top_color = Color(0.45, 0.47, 0.5, 1)
+sky_horizon_color = Color(0.7, 0.64, 0.55, 1)
+ground_bottom_color = Color(0.2, 0.18, 0.16, 1)
+ground_horizon_color = Color(0.7, 0.64, 0.55, 1)
+
+[sub_resource type="Sky" id="sky"]
+sky_material = SubResource("sky_mat")
+
+[sub_resource type="Environment" id="env"]
+background_mode = 2
+sky = SubResource("sky")
+tonemap_mode = 2
+
+[sub_resource type="PlaneMesh" id="ground_mesh"]
+size = Vector2(128, 128)
+
+[sub_resource type="ShaderMaterial" id="ground_mat"]
+shader = ExtResource("1_grid")
+
+[node name="Main" type="Node3D"]
+script = ExtResource("3_main")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("env")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.866025, -0.409576, 0.286788, 0, 0.573576, 0.819152, -0.5, -0.709406, 0.496732, 0, 20, 0)
+shadow_enabled = true
+
+[node name="GridView" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 64, 0, 64)
+mesh = SubResource("ground_mesh")
+surface_material_override/0 = SubResource("ground_mat")
+
+[node name="TileCursor" type="MeshInstance3D" parent="."]
+script = ExtResource("4_cursor")
+
+[node name="Buildings" type="Node3D" parent="."]
+
+[node name="CameraRig" parent="." instance=ExtResource("2_cam")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 64, 0, 64)
+
+[node name="BuildController" type="Node" parent="."]
+script = ExtResource("6_build")
+
+[node name="HUD" parent="." instance=ExtResource("5_hud")]

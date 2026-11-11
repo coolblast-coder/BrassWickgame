@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="BuildingDef" format=3]
+
+[ext_resource type="Script" path="res://buildings/building_def.gd" id="1_def"]
+
+[resource]
+script = ExtResource("1_def")
+id = &"glasshouse"
+display_name = "Glasshouse"
+footprint = Vector2i(2, 3)
+style = 1
+color = Color(0.62, 0.8, 0.72, 1)
+cost = 80
+workers = 4
+coal_per_day = 1

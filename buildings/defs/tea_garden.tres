@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="BuildingDef" format=3]
+
+[ext_resource type="Script" path="res://buildings/building_def.gd" id="1_def"]
+
+[resource]
+script = ExtResource("1_def")
+id = &"tea_garden"
+display_name = "Tea Garden"
+footprint = Vector2i(2, 2)
+style = 5
+color = Color(0.36, 0.55, 0.3, 1)
+cost = 60
+workers = 0
+coal_per_day = 0
