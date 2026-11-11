@@ -9,7 +9,10 @@ const MOVE_IN_PER_HOME := 2
 ## Citizens per Crown of daily tax.
 const CITIZENS_PER_TAX_CROWN := 2
 ## Crowns per day for every building except roads and the Town Hall.
-const UPKEEP_PER_BUILDING := 2
+## The design doc starts this at 2. Lowered after balance modelling: at 2, a
+## village without a Brassworks earns about +2 Crowns a day and any extra
+## building tips it into permanent debt.
+const UPKEEP_PER_BUILDING := 1
 ## Food eaten per citizen per day.
 const FOOD_PER_CITIZEN := 1
 ## Food output multiplier for a building standing in smog.
