@@ -12,3 +12,7 @@ color = Color(0.42, 0.44, 0.48, 1)
 cost = 120
 workers = 4
 coal_per_day = 1
+smog_per_day = 1
+effect_range = 6
+can_break = true
+repairs = true

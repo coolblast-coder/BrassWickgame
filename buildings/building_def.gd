@@ -31,3 +31,20 @@ enum Style { TENEMENT, GLASSHOUSE, COAL_PIT, BRASSWORKS, MECHANIC_YARD, TEA_GARD
 @export var food_output: int = 0
 @export var coal_output: int = 0
 @export var crowns_output: int = 0
+
+@export_group("Breakdowns")
+## Machines can break down; a broken one produces nothing until repaired.
+@export var can_break: bool = false
+## Repairs broken buildings within `effect_range` for free (Mechanic's Yard).
+@export var repairs: bool = false
+
+@export_group("Smog and area effects")
+## Smog added per day around the building, on days it runs.
+@export var smog_per_day: int = 0
+## Extra smog cleared per day on tiles within `effect_range` (Tea Garden).
+@export var smog_clear_per_day: int = 0
+## Lowers Unrest for Tenements within `effect_range` (Tea Garden).
+@export var calming: bool = false
+## Reach of this building's area effect, in tiles from the edge of its
+## footprint; diagonals count the same as straight lines.
+@export var effect_range: int = 0

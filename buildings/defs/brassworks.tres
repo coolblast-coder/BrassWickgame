@@ -13,3 +13,5 @@ cost = 150
 workers = 8
 coal_per_day = 4
 crowns_output = 40
+smog_per_day = 10
+can_break = true

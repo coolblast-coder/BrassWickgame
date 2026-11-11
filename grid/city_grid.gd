@@ -53,6 +53,14 @@ static func cell_center(cell: Vector2i) -> Vector3:
 	return cell_to_world(cell) + Vector3(TILE_SIZE, 0.0, TILE_SIZE) * 0.5
 
 
+## How many tiles `cell` is from the nearest tile of `rect`, counting a
+## diagonal step the same as a straight one. 0 if the cell is inside.
+static func distance_to_rect(cell: Vector2i, rect: Rect2i) -> int:
+	var dx := maxi(maxi(rect.position.x - cell.x, cell.x - (rect.end.x - 1)), 0)
+	var dy := maxi(maxi(rect.position.y - cell.y, cell.y - (rect.end.y - 1)), 0)
+	return maxi(dx, dy)
+
+
 static func is_in_bounds(cell: Vector2i) -> bool:
 	return cell.x >= 0 and cell.y >= 0 and cell.x < SIZE.x and cell.y < SIZE.y
 

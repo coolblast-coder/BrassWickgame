@@ -7,6 +7,7 @@
 [ext_resource type="PackedScene" path="res://ui/hud.tscn" id="5_hud"]
 [ext_resource type="Script" path="res://build/build_controller.gd" id="6_build"]
 [ext_resource type="Script" path="res://sim/game_clock.gd" id="7_clock"]
+[ext_resource type="Script" path="res://overlays/overlay_view.gd" id="8_overlay"]
 
 [sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
 sky_top_color = Color(0.45, 0.47, 0.5, 1)
@@ -45,6 +46,9 @@ surface_material_override/0 = SubResource("ground_mat")
 
 [node name="TileCursor" type="MeshInstance3D" parent="."]
 script = ExtResource("4_cursor")
+
+[node name="OverlayView" type="MeshInstance3D" parent="."]
+script = ExtResource("8_overlay")
 
 [node name="Buildings" type="Node3D" parent="."]
 

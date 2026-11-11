@@ -4,6 +4,8 @@
 [ext_resource type="Script" path="res://ui/build_bar.gd" id="2_bar"]
 [ext_resource type="Script" path="res://ui/top_bar.gd" id="3_top"]
 [ext_resource type="Script" path="res://ui/info_panel.gd" id="4_info"]
+[ext_resource type="Script" path="res://ui/event_banner.gd" id="5_event"]
+[ext_resource type="Script" path="res://ui/game_over_panel.gd" id="6_over"]
 
 [node name="HUD" type="CanvasLayer"]
 script = ExtResource("1_hud")
@@ -23,6 +25,14 @@ offset_right = 220.0
 offset_bottom = 76.0
 text = "Tile: -"
 
+[node name="LegendLabel" type="Label" parent="."]
+visible = false
+anchors_preset = 0
+offset_left = 12.0
+offset_top = 84.0
+offset_right = 260.0
+offset_bottom = 110.0
+
 [node name="WarningLabel" type="Label" parent="."]
 modulate = Color(1, 0.5, 0.42, 1)
 anchors_preset = 5
@@ -34,6 +44,17 @@ offset_right = 20.0
 offset_bottom = 76.0
 grow_horizontal = 2
 horizontal_alignment = 1
+
+[node name="EventBanner" type="PanelContainer" parent="."]
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -20.0
+offset_top = 84.0
+offset_right = 20.0
+offset_bottom = 124.0
+grow_horizontal = 2
+script = ExtResource("5_event")
 
 [node name="InfoPanel" type="PanelContainer" parent="."]
 anchors_preset = 1
@@ -75,3 +96,12 @@ grow_vertical = 0
 mouse_filter = 2
 alignment = 1
 script = ExtResource("2_bar")
+
+[node name="GameOverPanel" type="ColorRect" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.6)
+script = ExtResource("6_over")

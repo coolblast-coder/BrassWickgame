@@ -45,6 +45,21 @@ var workers_employed: int = 0:
 		changed.emit()
 
 
+## The city's one pressure meter, from 0 to 100. Every failure pushes it up.
+var unrest: float = 0.0:
+	set(value):
+		unrest = value
+		changed.emit()
+
+## What moved Unrest on the last simulated day, one line per cause, for the
+## top bar's tooltip. Set by CitySim.
+var unrest_causes: PackedStringArray = PackedStringArray()
+
+## Days in a row that have ended with Unrest at 100. Set by CitySim.
+var days_at_max_unrest: int = 0
+## The most citizens the city has ever held: half of the final score.
+var peak_population: int = 0
+
 ## How much each stockpile changed over the last simulated day. Set by
 ## CitySim, which emits `changed` itself afterwards.
 var crowns_change: int = 0
@@ -58,6 +73,8 @@ var hungry_citizens: int = 0
 var cold_homes: int = 0
 ## Machines that got no Coal and produced nothing.
 var stopped_machines: int = 0
+## Buildings that were broken down during the last simulated day.
+var broken_buildings: int = 0
 
 
 func can_afford(cost: int) -> bool:

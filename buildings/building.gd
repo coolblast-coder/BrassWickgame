@@ -18,10 +18,25 @@ var staff: int = 0
 ## False if this building needed Coal on the last simulated day and got none:
 ## a cold home, or a machine that stopped.
 var fuelled: bool = true
+## True if this building operated on the last simulated day: connected,
+## fuelled, and staffed if it needs workers. Only such buildings emit smog.
+var ran_today: bool = false
+## What this building actually produced on the last simulated day, after
+## staffing, smog, strikes and stoppages.
+var food_made: int = 0
+var coal_made: int = 0
+var crowns_made: int = 0
+## True if any tile under this building is at or above the smoggy threshold.
+var smoggy: bool = false
+## True while broken down: produces nothing and burns no Coal until repaired.
+## Change it through set_broken().
+var broken: bool = false
 
 var _model: Node3D
 ## Shown above buildings the road network does not reach; created on first need.
 var _no_access_marker: MeshInstance3D
+## Shown above broken buildings; created on first need.
+var _broken_marker: MeshInstance3D
 
 
 ## Footprint in tiles after rotation: odd quarter turns swap width and depth.
@@ -81,21 +96,50 @@ func set_road_access(value: bool) -> void:
 			_no_access_marker.visible = not road_access
 
 
+## Mark this building as broken down or repaired, and show it: a broken
+## building gets a yellow tilted cube above the roof.
+func set_broken(value: bool) -> void:
+	if value == broken:
+		return
+	broken = value
+	if _broken_marker == null and broken:
+		_broken_marker = _make_broken_marker()
+		add_child(_broken_marker)
+	if _broken_marker != null:
+		_broken_marker.visible = broken
+
+
 ## A red downward-pointing cone floating above the roof.
 func _make_no_access_marker() -> MeshInstance3D:
 	var cone := CylinderMesh.new()
 	cone.top_radius = 0.45
 	cone.bottom_radius = 0.0
 	cone.height = 0.9
+	return _make_marker("NoRoadAccessMarker", cone, Color(0.95, 0.2, 0.15), 1.0)
+
+
+## A yellow cube standing on one corner, floating above the no-access cone's
+## spot so both can show at once.
+func _make_broken_marker() -> MeshInstance3D:
+	var cube := BoxMesh.new()
+	cube.size = Vector3.ONE * 0.7
+	var marker := _make_marker("BrokenMarker", cube, Color(1.0, 0.85, 0.1), 2.3)
+	marker.rotation_degrees = Vector3(45.0, 0.0, 45.0)
+	return marker
+
+
+## A flat-coloured shape floating `height_above_roof` over the model.
+func _make_marker(marker_name: String, shape: Mesh, color: Color,
+		height_above_roof: float) -> MeshInstance3D:
 	var material := StandardMaterial3D.new()
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.albedo_color = Color(0.95, 0.2, 0.15)
+	material.albedo_color = color
 	var marker := MeshInstance3D.new()
-	marker.name = "NoRoadAccessMarker"
-	marker.mesh = cone
+	marker.name = marker_name
+	marker.mesh = shape
 	marker.material_override = material
 	marker.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	marker.position.y = _model_top() + 1.0
+	marker.position.y = _model_top() + height_above_roof
 	return marker
 
 
@@ -116,6 +160,11 @@ func set_overlay(material: Material) -> void:
 	for child in _model.get_children():
 		if child is MeshInstance3D:
 			child.material_overlay = material
+
+
+## The tiles this building covers, as a rectangle.
+func footprint_rect() -> Rect2i:
+	return Rect2i(origin, rotated_footprint(def, rotation_steps))
 
 
 func cells() -> Array[Vector2i]:

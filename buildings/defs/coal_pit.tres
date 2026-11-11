@@ -13,3 +13,5 @@ cost = 100
 workers = 6
 coal_per_day = 0
 coal_output = 12
+smog_per_day = 4
+can_break = true

@@ -13,3 +13,4 @@ cost = 50
 housing = 10
 workers = 0
 coal_per_day = 1
+smog_per_day = 1

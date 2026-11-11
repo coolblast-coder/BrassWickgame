@@ -109,6 +109,15 @@ func _unhandled_input(event: InputEvent) -> void:
 			rotation_steps = (rotation_steps + 1) % 4
 	elif event.is_action_pressed("demolish_mode"):
 		toggle_demolish()
+	elif event.is_action_pressed("repair"):
+		repair_selected()
+	elif OS.is_debug_build() and event is InputEventKey and event.pressed \
+			and not event.echo and event.physical_keycode == KEY_B:
+		# Development aid: B breaks the selected machine, to test repairs
+		# without waiting for a random breakdown. Not in exported builds.
+		if selected_building != null and selected_building.def.can_break:
+			selected_building.set_broken(true)
+			selection_changed.emit(selected_building)
 	elif event is InputEventMouseButton:
 		# Clicks on HUD buttons never get here; the UI consumes them first.
 		if event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
@@ -151,6 +160,26 @@ func select(building: Building) -> void:
 	if selected_building != null:
 		selected_building.set_overlay(_selection_material)
 	selection_changed.emit(selected_building)
+
+
+## Game over: drop whatever tool or selection is active and stop listening to
+## the mouse and keyboard.
+func shut_down() -> void:
+	cancel()
+	select(null)
+	set_process_unhandled_input(false)
+
+
+## Pay to repair the selected building at once, if it is broken and the city
+## can afford it.
+func repair_selected() -> bool:
+	if selected_building == null or not selected_building.broken:
+		return false
+	if not _city.can_afford(CitySim.REPAIR_COST):
+		return false
+	selected_building.set_broken(false)
+	_city.crowns -= CitySim.REPAIR_COST  # Also refreshes the HUD.
+	return true
 
 
 ## Idle-mode click: select the building under the cursor. Roads and empty

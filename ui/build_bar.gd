@@ -5,9 +5,11 @@ extends HBoxContainer
 ## `index` is the building's position in BuildingCatalog.all().
 signal slot_pressed(index: int)
 signal demolish_pressed
+signal overlay_pressed
 
 var _buttons: Array[Button] = []
 var _demolish_button: Button
+var _overlay_button: Button
 
 
 func _ready() -> void:
@@ -22,6 +24,15 @@ func _ready() -> void:
 	_demolish_button = _make_button("X  Demolish")
 	_demolish_button.toggle_mode = true
 	_demolish_button.pressed.connect(func() -> void: demolish_pressed.emit())
+
+	_overlay_button = _make_button("")
+	_overlay_button.pressed.connect(func() -> void: overlay_pressed.emit())
+	set_overlay_name("none")
+
+
+## Show which map overlay is active on the Overlay button.
+func set_overlay_name(overlay_name: String) -> void:
+	_overlay_button.text = "O  Overlay: %s" % overlay_name
 
 
 ## Show the Demolish button as active or not.

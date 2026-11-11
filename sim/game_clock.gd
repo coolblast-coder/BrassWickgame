@@ -15,6 +15,8 @@ const FAST_SPEED := 3
 ## The current day, starting at 1.
 var day: int = 1
 var paused: bool = false
+## True once the game is over; the clock never runs again.
+var stopped: bool = false
 ## Time multiplier: NORMAL_SPEED or FAST_SPEED.
 var speed: int = NORMAL_SPEED
 
@@ -30,6 +32,10 @@ func _process(delta: float) -> void:
 		_elapsed -= SECONDS_PER_DAY
 		day += 1
 		day_ended.emit(day - 1)
+		if paused:
+			# A listener ended the game; do not run any further days.
+			_elapsed = 0.0
+			return
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -46,11 +52,22 @@ func day_progress() -> float:
 	return clampf(_elapsed / SECONDS_PER_DAY, 0.0, 1.0)
 
 
+## Halt time for good (game over). Pause and speed stop responding.
+func stop() -> void:
+	stopped = true
+	paused = true
+	state_changed.emit()
+
+
 func toggle_pause() -> void:
+	if stopped:
+		return
 	paused = not paused
 	state_changed.emit()
 
 
 func toggle_speed() -> void:
+	if stopped:
+		return
 	speed = NORMAL_SPEED if speed == FAST_SPEED else FAST_SPEED
 	state_changed.emit()
