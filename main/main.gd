@@ -21,6 +21,8 @@ var _game_over: bool = false
 @onready var _build_controller: BuildController = $BuildController
 @onready var _clock: GameClock = $GameClock
 @onready var _overlay: OverlayView = $OverlayView
+@onready var _walkers: Walkers = $Walkers
+@onready var _airships: Airships = $Airships
 
 
 func _ready() -> void:
@@ -40,6 +42,8 @@ func _ready() -> void:
 	_overlay.setup(smog, grid)
 	_overlay.mode_changed.connect(_on_overlay_mode_changed)
 	_hud.build_bar.overlay_pressed.connect(_overlay.cycle)
+	_walkers.setup(grid, city, _clock)
+	_airships.setup(city, _clock)
 	_clock.day_ended.connect(_on_day_ended)
 	grid.buildings_changed.connect(func() -> void: _road_access_dirty = true)
 	_place_town_hall()

@@ -8,6 +8,8 @@
 [ext_resource type="Script" path="res://build/build_controller.gd" id="6_build"]
 [ext_resource type="Script" path="res://sim/game_clock.gd" id="7_clock"]
 [ext_resource type="Script" path="res://overlays/overlay_view.gd" id="8_overlay"]
+[ext_resource type="Script" path="res://decor/walkers.gd" id="9_walkers"]
+[ext_resource type="Script" path="res://decor/airships.gd" id="10_airships"]
 
 [sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
 sky_top_color = Color(0.45, 0.47, 0.5, 1)
@@ -51,6 +53,12 @@ script = ExtResource("4_cursor")
 script = ExtResource("8_overlay")
 
 [node name="Buildings" type="Node3D" parent="."]
+
+[node name="Walkers" type="Node3D" parent="."]
+script = ExtResource("9_walkers")
+
+[node name="Airships" type="Node3D" parent="."]
+script = ExtResource("10_airships")
 
 [node name="CameraRig" parent="." instance=ExtResource("2_cam")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 64, 0, 64)

@@ -107,6 +107,18 @@ func is_road(cell: Vector2i) -> bool:
 	return building != null and building.def.is_road
 
 
+## True if `cell` holds a road that leads back to the Town Hall.
+func is_connected_road(cell: Vector2i) -> bool:
+	return _connected_roads.has(cell)
+
+
+## Every road tile that leads back to the Town Hall, in no particular order.
+func connected_road_cells() -> Array[Vector2i]:
+	var cells: Array[Vector2i] = []
+	cells.assign(_connected_roads.keys())
+	return cells
+
+
 ## Flood-fill the road network outwards from the Town Hall.
 func recompute_connectivity() -> void:
 	_connected_roads.clear()
