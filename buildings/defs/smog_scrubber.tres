@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="BuildingDef" format=3]
+
+[ext_resource type="Script" path="res://buildings/building_def.gd" id="1_def"]
+
+[resource]
+script = ExtResource("1_def")
+id = &"smog_scrubber"
+display_name = "Smog Scrubber"
+footprint = Vector2i(2, 2)
+style = 11
+color = Color(0.3, 0.55, 0.5, 1)
+cost = 130
+workers = 2
+coal_per_day = 2
+can_break = true
+smog_clear_per_day = 10
+effect_range = 5

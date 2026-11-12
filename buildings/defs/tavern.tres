@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="BuildingDef" format=3]
+
+[ext_resource type="Script" path="res://buildings/building_def.gd" id="1_def"]
+
+[resource]
+script = ExtResource("1_def")
+id = &"tavern"
+display_name = "Tavern"
+footprint = Vector2i(2, 2)
+style = 10
+color = Color(0.55, 0.27, 0.2, 1)
+cost = 90
+workers = 3
+food_per_day = 5
+calming = true
+effect_range = 5

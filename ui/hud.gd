@@ -107,7 +107,8 @@ func show_build_mode(mode: BuildController.Mode, def: BuildingDef) -> void:
 			if def.is_road:
 				_hint_label.text = "Road (%d Crowns per tile)   |   Click and drag to lay   |   Right click / Esc: cancel" % def.cost
 			else:
-				_hint_label.text = "%s (%d Crowns)   |   R: rotate   |   Right click / Esc: cancel" % [def.display_name, def.cost]
+				var limit := "   |   One per city" if def.unique else ""
+				_hint_label.text = "%s (%d Crowns)%s   |   R: rotate   |   Right click / Esc: cancel" % [def.display_name, def.cost, limit]
 		BuildController.Mode.DEMOLISHING:
 			_hint_label.text = "Demolish   |   Left click: remove   |   Right click / Esc: cancel"
 		_:

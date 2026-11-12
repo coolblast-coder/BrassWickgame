@@ -17,8 +17,9 @@ var road_access: bool = true
 var residents: int = 0
 ## Workers assigned to this building by the last daily simulation.
 var staff: int = 0
-## False if this building needed Coal on the last simulated day and got none:
-## a cold home, or a machine that stopped.
+## False if this building needed Coal (or, for a Tavern, Food) on the last
+## simulated day and got none: a cold home, a machine that stopped, a shut
+## Tavern.
 var fuelled: bool = true
 ## True if this building operated on the last simulated day: connected,
 ## fuelled, and staffed if it needs workers. Only such buildings emit smog.
@@ -193,6 +194,15 @@ func set_overlay(material: Material) -> void:
 	for child in _model.get_children():
 		if child is MeshInstance3D:
 			child.material_overlay = material
+
+
+## Whether this building's area effect (calming, smog clearing) applies
+## today: it must be on the road network, and if it needs workers it must
+## have run.
+func area_effect_active() -> bool:
+	if not road_access:
+		return false
+	return def.workers <= 0 or ran_today
 
 
 ## The tiles this building covers, as a rectangle.

@@ -4,7 +4,7 @@ extends RefCounted
 ## in-game day run_day() reads the buildings on the grid and updates the
 ## city's stockpiles. All constants are tuning values.
 
-## Citizens who move in per day for each connected Tenement, while there is room.
+## Citizens who move in per day for each connected home, while there is room.
 const MOVE_IN_PER_HOME := 2
 ## Citizens per Crown of daily tax.
 const CITIZENS_PER_TAX_CROWN := 2
@@ -17,6 +17,9 @@ const UPKEEP_PER_BUILDING := 1
 const FOOD_PER_CITIZEN := 1
 ## Food output multiplier for a building standing in smog.
 const SMOGGY_FOOD_FACTOR := 0.5
+
+## Airship Docks never sell Coal the city holds below this.
+const TRADE_COAL_RESERVE := 100
 
 ## Crowns to repair one broken building by hand.
 const REPAIR_COST := 20
@@ -40,14 +43,15 @@ const LEAVE_SHARE_PER_DAY := 0.05
 # Daily Unrest changes. The "share" ones scale with how much of the city is
 # affected, from nothing up to the value given.
 const UNREST_HUNGER := 20.0        # by share of citizens who went hungry
-const UNREST_COLD := 10.0          # by share of Tenements unheated
-const UNREST_SMOG := 8.0           # by share of Tenements in smog
+const UNREST_COLD := 10.0          # by share of homes unheated
+const UNREST_SMOG := 8.0           # by share of homes in smog
 const UNREST_IDLE := 5.0           # by share of workers without a job
 const UNREST_PER_BROKEN := 2.0     # per building that was broken today...
 const UNREST_BROKEN_MAX := 10.0    # ...up to this much
 const UNREST_DEBT := 5.0           # flat, while Crowns are below zero
 const UNREST_BASELINE_CALM := 3.0  # flat, every day
-const UNREST_TEA_GARDEN := 4.0     # by share of Tenements near a Tea Garden
+const UNREST_TEA_GARDEN := 4.0     # by share of homes near a Tea Garden
+const UNREST_TAVERN := 3.0         # by share of homes near an open Tavern
 
 ## Multiplier on all Coal dug. CityEvents lowers it during a Coal Strike.
 var coal_output_factor: float = 1.0
@@ -84,7 +88,7 @@ func run_day() -> void:
 	_city.changed.emit()
 
 
-## Citizens move into Tenements the road network reaches, while Unrest is low.
+## Citizens move into homes the road network reaches, while Unrest is low.
 ## If housing is lost (demolished or cut off), the citizens it held leave on
 ## the next day. When Unrest is high, a share of everyone leaves each day.
 func _update_population() -> void:
@@ -157,6 +161,8 @@ func _run_economy() -> void:
 	var broken := 0
 	var homes: Array[Building] = []
 	var machines: Array[Building] = []
+	var eateries: Array[Building] = []
+	var traders: Array[Building] = []
 
 	for building in _grid.all_buildings:
 		var def := building.def
@@ -174,7 +180,13 @@ func _run_economy() -> void:
 			continue
 		if not building.road_access:
 			continue
-		if def.coal_per_day <= 0:
+		if def.trade_coal > 0:
+			# Trades after every home and machine has its Coal, further down.
+			traders.append(building)
+		elif def.food_per_day > 0:
+			# Served after the citizens have eaten, further down.
+			eateries.append(building)
+		elif def.coal_per_day <= 0:
 			# Needs no Coal (Coal Pit, Tea Garden): always runs.
 			_produce(building)
 			coal_pool += building.coal_made
@@ -205,14 +217,37 @@ func _run_economy() -> void:
 			machine.fuelled = false
 			stopped_machines += 1
 
+	# Airship Docks sell Coal the city can spare, once everything is fuelled.
+	for dock in traders:
+		var staffing := _staffing(dock)
+		dock.ran_today = staffing > 0.0
+		var spare := coal_pool - TRADE_COAL_RESERVE
+		var sold := mini(roundi(dock.def.trade_coal * staffing), spare)
+		if sold > 0:
+			coal_pool -= sold
+			dock.crowns_made = roundi(float(sold) * dock.def.trade_crowns / dock.def.trade_coal)
+			crowns_made += dock.crowns_made
+
 	@warning_ignore("integer_division")
 	var tax := _city.population / CITIZENS_PER_TAX_CROWN
 	var food_needed := _city.population * FOOD_PER_CITIZEN
 	var food_available := _city.food + food_made
 
+	# Taverns open on whatever Food is left once the citizens have eaten.
+	var food_left := maxi(0, food_available - food_needed)
+	for eatery in eateries:
+		if eatery.staff <= 0:
+			continue
+		if food_left >= eatery.def.food_per_day:
+			food_left -= eatery.def.food_per_day
+			_produce(eatery)
+			crowns_made += eatery.crowns_made
+		else:
+			eatery.fuelled = false
+
 	# Crowns may go into debt; Food and Coal stop at zero.
 	_city.crowns += crowns_made + tax - upkeep
-	_city.food = maxi(0, food_available - food_needed)
+	_city.food = food_left
 	_city.coal = coal_pool
 	_city.broken_buildings = broken
 	_city.hungry_citizens = maxi(0, food_needed - food_available)
@@ -244,15 +279,22 @@ func _staffing(building: Building) -> float:
 ## Add up everything that went wrong (and right) today and move the Unrest
 ## meter. Runs last, so it sees today's shortages and smog.
 func _update_unrest() -> void:
-	# Each connected Tea Garden calms Tenements within its reach.
+	# Each connected Tea Garden, and each Tavern that opened today, calms the
+	# homes within its reach. The two add up.
 	var calm_areas: Array[Rect2i] = []
+	var tavern_areas: Array[Rect2i] = []
 	for building in _grid.all_buildings:
-		if building.def.calming and building.road_access:
-			calm_areas.append(building.footprint_rect().grow(building.def.effect_range))
+		if building.def.calming and building.area_effect_active():
+			var area := building.footprint_rect().grow(building.def.effect_range)
+			if building.def.workers > 0:
+				tavern_areas.append(area)
+			else:
+				calm_areas.append(area)
 
 	var homes := 0
 	var smoggy_homes := 0
 	var calmed_homes := 0
+	var tavern_homes := 0
 	for building in _grid.all_buildings:
 		if building.def.housing <= 0 or not building.road_access:
 			continue
@@ -263,6 +305,10 @@ func _update_unrest() -> void:
 		for area in calm_areas:
 			if area.intersects(footprint):
 				calmed_homes += 1
+				break
+		for area in tavern_areas:
+			if area.intersects(footprint):
+				tavern_homes += 1
 				break
 
 	var idle_workers := _city.workers_total - _city.workers_employed
@@ -277,6 +323,12 @@ func _update_unrest() -> void:
 	if _city.crowns < 0:
 		change += _cause(causes, "Debt", UNREST_DEBT)
 	change += _cause(causes, "Tea Gardens", -UNREST_TEA_GARDEN * _share(calmed_homes, homes))
+	change += _cause(causes, "Taverns", -UNREST_TAVERN * _share(tavern_homes, homes))
+	var landmark_calm := 0.0
+	for building in _grid.all_buildings:
+		if building.def.citywide_calm > 0.0 and building.road_access:
+			landmark_calm += building.def.citywide_calm
+	change += _cause(causes, "Clocktower", -landmark_calm)
 	change += _cause(causes, "Baseline calm", -UNREST_BASELINE_CALM)
 
 	_city.unrest_causes = causes

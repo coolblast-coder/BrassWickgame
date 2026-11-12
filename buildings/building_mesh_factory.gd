@@ -54,6 +54,18 @@ static func build(def: BuildingDef) -> Node3D:
 			_tea_garden(root, w, d, def.color)
 		BuildingDef.Style.TOWN_HALL:
 			_town_hall(root, w, d, def.color)
+		BuildingDef.Style.TOWNHOUSE:
+			_townhouse(root, w, d, def.color)
+		BuildingDef.Style.MARKET:
+			_market(root, w, d, def.color)
+		BuildingDef.Style.TAVERN:
+			_tavern(root, w, d, def.color)
+		BuildingDef.Style.SMOG_SCRUBBER:
+			_smog_scrubber(root, w, d, def.color)
+		BuildingDef.Style.AIRSHIP_DOCK:
+			_airship_dock(root, w, d, def.color)
+		BuildingDef.Style.CLOCKTOWER:
+			_clocktower(root, w, d, def.color)
 		BuildingDef.Style.ROAD:
 			# Full tile, no margin, so neighbouring road tiles join up.
 			_box(root, Vector3(w + MARGIN * 2.0, ROAD_HEIGHT, d + MARGIN * 2.0),
@@ -100,6 +112,259 @@ static func _tenement(root: Node3D, w: float, d: float, color: Color) -> void:
 	_box(root, Vector3(0.7, 1.3, 0.1), Vector3(0.0, base + 0.65, front), WOOD)
 	_box(root, Vector3(0.95, 0.14, 0.14), Vector3(0.0, base + 1.37, front), STONE)
 	_box(root, Vector3(1.0, 0.15, 0.2), Vector3(0.0, 0.075, bd * 0.5 + 0.1), STONE)
+
+
+static func _townhouse(root: Node3D, w: float, d: float, color: Color) -> void:
+	# Three-storey terrace in pale brick: a projecting bay over the front
+	# door, stone cornice, steep slate roof, chimneys and a brass finial.
+	var bw := w - 0.3
+	var bd := d - 0.6
+	var bz := -0.1
+	var base := 0.3
+	var h := 5.0
+	var top := base + h
+	var front := bz + bd * 0.5
+	_box(root, Vector3(bw + 0.15, base, bd + 0.15), Vector3(0.0, base * 0.5, bz), STONE)
+	_box(root, Vector3(bw, h, bd), Vector3(0.0, base + h * 0.5, bz), color)
+	_box(root, Vector3(bw + 0.25, 0.25, bd + 0.25), Vector3(0.0, top + 0.125, bz), STONE)
+	_prism(root, Vector3(bw + 0.25, 1.7, bd + 0.25), Vector3(0.0, top + 1.1, bz), SLATE)
+	_cylinder(root, 0.04, 0.7, Vector3(0.0, top + 2.2, front), BRASS, 0.7)
+	for side: float in [-1.0, 1.0]:
+		var x := side * bw * 0.36
+		_box(root, Vector3(0.45, 1.9, 0.6), Vector3(x, top + 1.0, bz), DARK_BRICK)
+		_cylinder(root, 0.12, 0.3, Vector3(x, top + 2.1, bz - 0.15), TERRACOTTA)
+		_cylinder(root, 0.12, 0.3, Vector3(x, top + 2.1, bz + 0.15), TERRACOTTA)
+	# The bay: two floors of windows above the door.
+	var bay_w := 1.2
+	var bay_z := front + 0.12
+	_box(root, Vector3(bay_w, h - 0.4, 0.25), Vector3(0.0, base + (h - 0.4) * 0.5, bay_z), color.lightened(0.12))
+	_box(root, Vector3(bay_w + 0.15, 0.15, 0.4), Vector3(0.0, base + h - 0.33, bay_z), STONE)
+	# Windows on three floors.
+	var pane := Vector2(0.5, 0.8)
+	var flank := bw * 0.5 + 0.02
+	for level: float in [0.2, 0.52, 0.84]:
+		var y := base + h * level
+		_windows_z(root, 3, bw, y, bz - bd * 0.5 - 0.02, pane)
+		for side: float in [-1.0, 1.0]:
+			_windows_x(root, 3, bd, y, side * flank, pane, bz)
+			_window(root, Vector3(pane.x, pane.y, 0.08), Vector3(side * bw * 0.34, y, front + 0.02))
+		if level > 0.3:
+			_window(root, Vector3(0.7, pane.y, 0.08), Vector3(0.0, y - 0.1, bay_z + 0.13))
+	# Front door with a stone surround and step.
+	_box(root, Vector3(0.95, 1.55, 0.06), Vector3(0.0, base + 0.78, bay_z + 0.11), STONE)
+	_box(root, Vector3(0.7, 1.35, 0.08), Vector3(0.0, base + 0.68, bay_z + 0.13), WOOD)
+	_box(root, Vector3(1.0, 0.15, 0.2), Vector3(0.0, 0.075, bay_z + 0.22), STONE)
+
+
+static func _market(root: Node3D, w: float, d: float, color: Color) -> void:
+	# Open-sided market hall at the back, on iron posts under a slate roof,
+	# with two awninged stalls, crates and barrels on the paving in front.
+	var ground := 0.15
+	_box(root, Vector3(w, ground, d), Vector3(0.0, ground * 0.5, 0.0), PAVING.lightened(0.15))
+	# Hall.
+	var hw := w - 0.4
+	var hd := d * 0.5
+	var hall_z := -d * 0.5 + 0.2 + hd * 0.5
+	var eaves := ground + 2.4
+	for side: float in [-1.0, 1.0]:
+		for along: float in [-1.0, 0.0, 1.0]:
+			_box(root, Vector3(0.14, 2.4, 0.14),
+					Vector3(side * hw * 0.5, ground + 1.2, hall_z + along * hd * 0.5), IRON)
+		_box(root, Vector3(0.16, 0.16, hd + 0.16), Vector3(side * hw * 0.5, eaves, hall_z), IRON)
+		_box(root, Vector3(hw, 0.16, 0.16), Vector3(0.0, eaves, hall_z + side * hd * 0.5), IRON)
+	_prism(root, Vector3(hw + 0.4, 1.0, hd + 0.4), Vector3(0.0, eaves + 0.58, hall_z), SLATE)
+	_box(root, Vector3(hw + 0.42, 0.14, 0.1), Vector3(0.0, eaves + 0.05, hall_z + hd * 0.5 + 0.2), color)
+	# Counters under the roof, loaded with goods, and a hanging lamp.
+	var goods: Array[Color] = [Color(0.8, 0.3, 0.2), Color(0.85, 0.7, 0.3), LEAF, Color(0.55, 0.35, 0.6)]
+	for side: float in [-1.0, 1.0]:
+		var counter := Vector3(side * hw * 0.25, ground, hall_z)
+		_box(root, Vector3(hw * 0.32, 0.7, hd - 0.9), counter + Vector3(0.0, 0.35, 0.0), WOOD)
+		for n in 4:
+			_box(root, Vector3(hw * 0.24, 0.16, 0.34),
+					counter + Vector3(0.0, 0.78, (n - 1.5) * (hd - 1.1) / 4.0), goods[(n + int(side > 0.0)) % 4])
+	_cylinder(root, 0.02, 0.5, Vector3(0.0, eaves - 0.25, hall_z), SOOT)
+	_window(root, Vector3(0.22, 0.22, 0.22), Vector3(0.0, eaves - 0.55, hall_z))
+	# Stalls in front, each a table under a sloping awning.
+	var stall_z := d * 0.5 - 1.15
+	var awnings: Array[Color] = [color, PLASTER]
+	for i in 2:
+		var side := -1.0 if i == 0 else 1.0
+		var stall := Vector3(side * w * 0.24, ground, stall_z)
+		_box(root, Vector3(1.3, 0.65, 0.7), stall + Vector3(0.0, 0.325, 0.0), WOOD)
+		_box(root, Vector3(1.1, 0.14, 0.5), stall + Vector3(0.0, 0.72, 0.0), goods[i + 1])
+		for corner: Vector2 in [Vector2(-1, -1), Vector2(1, -1), Vector2(-1, 1), Vector2(1, 1)]:
+			_cylinder(root, 0.035, 1.7, stall + Vector3(corner.x * 0.65, 0.85, corner.y * 0.42), WOOD)
+		_prism(root, Vector3(1.55, 0.35, 1.05), stall + Vector3(0.0, 1.85, 0.0), awnings[i])
+	# Barrels and a crate between the hall and the stalls.
+	var gap_z := hall_z + hd * 0.5 + 0.55
+	_cylinder(root, 0.25, 0.6, Vector3(-w * 0.36, ground + 0.3, gap_z), WOOD.darkened(0.2))
+	_cylinder(root, 0.25, 0.6, Vector3(-w * 0.36 + 0.55, ground + 0.3, gap_z), WOOD.darkened(0.2))
+	_box(root, Vector3(0.5, 0.5, 0.5), Vector3(w * 0.36, ground + 0.25, gap_z), WOOD.lightened(0.15))
+
+
+static func _tavern(root: Node3D, w: float, d: float, color: Color) -> void:
+	# Half-timbered inn: stone ground floor, an overhanging plaster upper
+	# floor with dark beams, tiled gable roof, chimney, hanging brass sign.
+	var bw := w - 0.6
+	var bd := d - 0.6
+	var floor_h := 1.5
+	var jetty := 0.25
+	var top := floor_h * 2.0
+	var front := bd * 0.5
+	var upper_front := front + jetty * 0.5
+	_box(root, Vector3(bw, floor_h, bd), Vector3(0.0, floor_h * 0.5, 0.0), STONE.darkened(0.15))
+	_box(root, Vector3(bw + jetty + 0.06, 0.14, bd + jetty + 0.06), Vector3(0.0, floor_h, 0.0), WOOD)
+	_box(root, Vector3(bw + jetty, floor_h, bd + jetty), Vector3(0.0, floor_h * 1.5, 0.0), PLASTER)
+	_prism(root, Vector3(bw + jetty + 0.2, 1.3, bd + jetty + 0.2), Vector3(0.0, top + 0.65, 0.0), color)
+	_box(root, Vector3(0.5, 1.9, 0.5), Vector3(-bw * 0.3, top + 0.8, -bd * 0.2), DARK_BRICK)
+	_cylinder(root, 0.13, 0.3, Vector3(-bw * 0.3, top + 1.9, -bd * 0.2), TERRACOTTA)
+	# Beams on the upper floor, front and back.
+	for side: float in [-1.0, 1.0]:
+		for n in 4:
+			var x := (n / 3.0 - 0.5) * (bw + jetty - 0.1)
+			_box(root, Vector3(0.1, floor_h, 0.06), Vector3(x, floor_h * 1.5, side * (upper_front + 0.01)), WOOD)
+		_box(root, Vector3(0.06, floor_h, bd + jetty + 0.02), Vector3(side * (bw + jetty) * 0.5, floor_h * 1.5, 0.0), WOOD)
+	# Windows.
+	var pane := Vector2(0.5, 0.6)
+	_windows_z(root, 3, bw + jetty, floor_h * 1.5, upper_front + 0.03, pane)
+	_windows_z(root, 3, bw + jetty, floor_h * 1.5, -upper_front - 0.03, pane)
+	_window(root, Vector3(0.8, 0.6, 0.08), Vector3(bw * 0.25, floor_h * 0.6, front + 0.02))
+	for side: float in [-1.0, 1.0]:
+		_windows_x(root, 2, bd, floor_h * 0.6, side * (bw * 0.5 + 0.02), pane)
+	# Door, sign and barrels.
+	_box(root, Vector3(0.7, 1.25, 0.08), Vector3(-bw * 0.22, 0.625, front + 0.02), WOOD)
+	_box(root, Vector3(0.05, 0.05, 0.3), Vector3(-bw * 0.22, floor_h + 0.75, upper_front + 0.15), IRON)
+	_box(root, Vector3(0.5, 0.4, 0.05), Vector3(-bw * 0.22, floor_h + 0.5, upper_front + 0.25), BRASS, 0.7)
+	_cylinder(root, 0.22, 0.55, Vector3(bw * 0.5 - 0.1, 0.275, front + 0.28), WOOD.darkened(0.2))
+	_cylinder(root, 0.22, 0.55, Vector3(bw * 0.5 - 0.6, 0.275, front + 0.28), WOOD.darkened(0.2))
+
+
+static func _smog_scrubber(root: Node3D, w: float, d: float, color: Color) -> void:
+	# Copper-green scrubbing tower with brass bands and a wide intake funnel
+	# and fan on top, a brick control hut, and an exhaust pipe.
+	var ground := 0.15
+	_box(root, Vector3(w, ground, d), Vector3(0.0, ground * 0.5, 0.0), PAVING)
+	var tank := Vector3(-w * 0.12, 0.0, -d * 0.1)
+	var tank_h := 3.0
+	var tank_top := ground + tank_h
+	_cylinder(root, 1.05, tank_h, tank + Vector3(0.0, ground + tank_h * 0.5, 0.0), color, 0.4)
+	for level: float in [0.8, 2.2]:
+		_torus(root, 1.0, 1.12, tank + Vector3(0.0, ground + level, 0.0), BRASS, 0.7)
+	_cylinder(root, 0.7, 0.8, tank + Vector3(0.0, tank_top + 0.4, 0.0), BRASS, 0.7, 1.25)
+	_cylinder(root, 1.18, 0.04, tank + Vector3(0.0, tank_top + 0.76, 0.0), SOOT)
+	for turn: float in [0.0, 0.5]:
+		var blade := _box(root, Vector3(2.2, 0.05, 0.28), tank + Vector3(0.0, tank_top + 0.82, 0.0), STEEL, 0.6)
+		blade.rotation.y = turn * PI
+	_cylinder(root, 0.16, 0.2, tank + Vector3(0.0, tank_top + 0.86, 0.0), BRASS, 0.7)
+	_box(root, Vector3(0.32, tank_h - 0.2, 0.05), tank + Vector3(0.0, ground + tank_h * 0.5, 1.07), STEEL, 0.6)
+	# Control hut at the front right, piped to the tower.
+	var hut := Vector3(w * 0.29, ground, d * 0.28)
+	_box(root, Vector3(1.1, 1.4, 1.0), hut + Vector3(0.0, 0.7, 0.0), DARK_BRICK)
+	_box(root, Vector3(1.25, 0.12, 1.15), hut + Vector3(0.0, 1.46, 0.0), SLATE)
+	_box(root, Vector3(0.45, 0.95, 0.06), hut + Vector3(-0.22, 0.475, 0.51), WOOD)
+	_window(root, Vector3(0.35, 0.4, 0.06), hut + Vector3(0.28, 0.9, 0.51))
+	var link := _cylinder(root, 0.1, 1.2, Vector3((tank.x + hut.x) * 0.5 + 0.3, ground + 1.0, (tank.z + hut.z) * 0.5), BRASS, 0.7)
+	link.rotation.x = PI * 0.5
+	# Exhaust pipe at the back right.
+	var pipe := Vector3(w * 0.36, 0.0, -d * 0.34)
+	_cylinder(root, 0.14, 4.2, pipe + Vector3(0.0, ground + 2.1, 0.0), SOOT)
+	_cylinder(root, 0.19, 0.2, pipe + Vector3(0.0, ground + 4.25, 0.0), BRASS, 0.7)
+
+
+static func _airship_dock(root: Node3D, w: float, d: float, color: Color) -> void:
+	# Paved yard with an iron mooring mast, a small airship tied to it, a
+	# brick warehouse, a brass landing ring and goods waiting to be loaded.
+	var ground := 0.15
+	_box(root, Vector3(w, ground, d), Vector3(0.0, ground * 0.5, 0.0), PAVING)
+	# Mooring mast: four posts tied by rings of beams, a brass cone on top.
+	var mast := Vector3(-w * 0.15, ground, -d * 0.36)
+	var mast_h := 5.2
+	var half := 0.35
+	for corner: Vector2 in [Vector2(-1, -1), Vector2(1, -1), Vector2(-1, 1), Vector2(1, 1)]:
+		_box(root, Vector3(0.1, mast_h, 0.1), mast + Vector3(corner.x * half, mast_h * 0.5, corner.y * half), IRON)
+	for level: float in [1.3, 2.6, 3.9, 5.2]:
+		for side: float in [-1.0, 1.0]:
+			_box(root, Vector3(half * 2.0 + 0.1, 0.08, 0.08), mast + Vector3(0.0, level, side * half), IRON)
+			_box(root, Vector3(0.08, 0.08, half * 2.0 + 0.1), mast + Vector3(side * half, level, 0.0), IRON)
+	_cylinder(root, 0.26, 0.5, mast + Vector3(0.0, mast_h + 0.25, 0.0), BRASS, 0.7, 0.0)
+	# Airship: envelope along Z with its nose at the mast, gondola below.
+	var ship := Vector3(mast.x, ground + mast_h + 0.1, mast.z + half + 1.85)
+	var envelope := _capsule(root, 0.85, 3.6, ship, color)
+	envelope.rotation.x = PI * 0.5
+	var band := _cylinder(root, 0.87, 0.14, ship, BRASS, 0.7)
+	band.rotation.x = PI * 0.5
+	_box(root, Vector3(0.06, 1.3, 0.6), ship + Vector3(0.0, 0.0, 1.5), color.darkened(0.25))
+	_box(root, Vector3(1.3, 0.06, 0.6), ship + Vector3(0.0, 0.0, 1.5), color.darkened(0.25))
+	_box(root, Vector3(0.5, 0.4, 1.3), ship + Vector3(0.0, -1.25, 0.0), WOOD)
+	for side: float in [-1.0, 1.0]:
+		_cylinder(root, 0.025, 0.4, ship + Vector3(0.0, -0.92, side * 0.45), SOOT)
+	# Warehouse.
+	var store := Vector3(w * 0.27, ground, -d * 0.18)
+	_box(root, Vector3(1.9, 1.8, 2.6), store + Vector3(0.0, 0.9, 0.0), DARK_BRICK)
+	_prism(root, Vector3(2.1, 0.8, 2.8), store + Vector3(0.0, 2.2, 0.0), SLATE)
+	_box(root, Vector3(1.0, 1.3, 0.08), store + Vector3(0.0, 0.65, 1.33), WOOD)
+	_windows_x(root, 2, 2.6, ground + 1.2, store.x - 0.97, Vector2(0.5, 0.5), store.z)
+	# Landing ring, crates, a heap of Coal for sale, lamps.
+	_torus(root, 0.8, 0.92, Vector3(w * 0.25, ground + 0.02, d * 0.3), BRASS, 0.7)
+	_box(root, Vector3(0.6, 0.6, 0.6), Vector3(-w * 0.02, ground + 0.3, d * 0.38), WOOD)
+	_box(root, Vector3(0.45, 0.45, 0.45), Vector3(-w * 0.02 + 0.6, ground + 0.225, d * 0.4), WOOD.lightened(0.15))
+	_cylinder(root, 0.6, 0.6, Vector3(-w * 0.36, ground + 0.3, d * 0.34), SOOT, 0.0, 0.0)
+	for side: float in [-1.0, 1.0]:
+		_lamp(root, Vector3(side * (w * 0.5 - 0.3), ground, d * 0.5 - 0.3), 1.6)
+
+
+static func _clocktower(root: Node3D, w: float, d: float, color: Color) -> void:
+	# The city's landmark: a tall sandstone tower on a stone plinth, with a
+	# clock on every face, an open belfry with a brass bell, a slate spire
+	# and lamps at the corners of its lawn.
+	var lawn := 0.12
+	_box(root, Vector3(w, lawn, d), Vector3(0.0, lawn * 0.5, 0.0), LEAF.darkened(0.25))
+	var plinth_top := lawn + 0.9
+	_box(root, Vector3(2.4, 0.9, 2.4), Vector3(0.0, lawn + 0.45, 0.0), STONE)
+	var shaft := 1.7
+	var shaft_h := 5.5
+	var shaft_top := plinth_top + shaft_h
+	_box(root, Vector3(shaft, shaft_h, shaft), Vector3(0.0, plinth_top + shaft_h * 0.5, 0.0), color)
+	_box(root, Vector3(shaft + 0.15, 0.2, shaft + 0.15), Vector3(0.0, shaft_top + 0.1, 0.0), STONE)
+	# Slit windows up the shaft, a door and steps at the front.
+	for level: float in [1.9, 3.3, 4.7]:
+		for side: float in [-1.0, 1.0]:
+			_window(root, Vector3(0.3, 0.7, 0.06), Vector3(0.0, plinth_top + level, side * (shaft * 0.5 + 0.02)))
+			_window(root, Vector3(0.06, 0.7, 0.3), Vector3(side * (shaft * 0.5 + 0.02), plinth_top + level, 0.0))
+	_box(root, Vector3(0.7, 1.3, 0.08), Vector3(0.0, plinth_top + 0.65, shaft * 0.5 + 0.03), WOOD)
+	_box(root, Vector3(1.1, 0.45, 0.35), Vector3(0.0, lawn + 0.225, 1.2 + 0.17), STONE)
+	_box(root, Vector3(1.1, 0.22, 0.3), Vector3(0.0, lawn + 0.11, 1.2 + 0.5), STONE)
+	# Clock stage.
+	var stage := 2.0
+	var stage_base := shaft_top + 0.2
+	var stage_top := stage_base + 1.7
+	var clock_y := stage_base + 0.85
+	var reach := stage * 0.5 + 0.03
+	_box(root, Vector3(stage, 1.7, stage), Vector3(0.0, clock_y, 0.0), PLASTER)
+	for side: float in [-1.0, 1.0]:
+		var rim_z := _cylinder(root, 0.72, 0.08, Vector3(0.0, clock_y, side * reach), BRASS, 0.7)
+		rim_z.rotation.x = PI * 0.5
+		var dial_z := _cylinder(root, 0.62, 0.12, Vector3(0.0, clock_y, side * reach), PLASTER)
+		dial_z.rotation.x = PI * 0.5
+		var rim_x := _cylinder(root, 0.72, 0.08, Vector3(side * reach, clock_y, 0.0), BRASS, 0.7)
+		rim_x.rotation.z = PI * 0.5
+		var dial_x := _cylinder(root, 0.62, 0.12, Vector3(side * reach, clock_y, 0.0), PLASTER)
+		dial_x.rotation.z = PI * 0.5
+		# Hands, on the front and back dials.
+		_box(root, Vector3(0.07, 0.5, 0.04), Vector3(0.0, clock_y + 0.22, side * (reach + 0.07)), SOOT)
+		_box(root, Vector3(0.34, 0.07, 0.04), Vector3(side * 0.15, clock_y, side * (reach + 0.07)), SOOT)
+	_box(root, Vector3(stage + 0.25, 0.22, stage + 0.25), Vector3(0.0, stage_top + 0.11, 0.0), STONE)
+	# Belfry, bell and spire.
+	var belfry_base := stage_top + 0.22
+	for corner: Vector2 in [Vector2(-1, -1), Vector2(1, -1), Vector2(-1, 1), Vector2(1, 1)]:
+		_box(root, Vector3(0.25, 1.1, 0.25), Vector3(corner.x * 0.8, belfry_base + 0.55, corner.y * 0.8), color)
+	_cylinder(root, 0.4, 0.5, Vector3(0.0, belfry_base + 0.5, 0.0), BRASS, 0.7, 0.15)
+	_box(root, Vector3(2.1, 0.18, 2.1), Vector3(0.0, belfry_base + 1.19, 0.0), STONE)
+	var spire_base := belfry_base + 1.28
+	_pyramid(root, 2.2, 1.9, Vector3(0.0, spire_base + 0.95, 0.0), SLATE)
+	_cylinder(root, 0.05, 0.9, Vector3(0.0, spire_base + 2.2, 0.0), BRASS, 0.7)
+	for corner: Vector2 in [Vector2(-1, -1), Vector2(1, -1), Vector2(-1, 1), Vector2(1, 1)]:
+		_lamp(root, Vector3(corner.x * (w * 0.5 - 0.3), lawn, corner.y * (d * 0.5 - 0.3)), 1.5)
 
 
 static func _glasshouse(root: Node3D, w: float, d: float, color: Color) -> void:
@@ -409,6 +674,21 @@ static func _prism(root: Node3D, size: Vector3, center: Vector3, color: Color) -
 	var mesh := PrismMesh.new()
 	mesh.size = size
 	return _add(root, mesh, center, color, 0.0)
+
+
+## A four-sided pyramid, `side` wide at the base, edges square to the model.
+static func _pyramid(root: Node3D, side: float, height: float, center: Vector3,
+		color: Color) -> MeshInstance3D:
+	var roof := _cylinder(root, side * 0.7071, height, center, color, 0.0, 0.0)
+	(roof.mesh as CylinderMesh).radial_segments = 4
+	roof.rotation.y = PI * 0.25
+	return roof
+
+
+## A lamp post with a glowing lantern on top.
+static func _lamp(root: Node3D, foot: Vector3, height: float) -> void:
+	_cylinder(root, 0.04, height, foot + Vector3(0.0, height * 0.5, 0.0), IRON)
+	_window(root, Vector3(0.18, 0.2, 0.18), foot + Vector3(0.0, height + 0.1, 0.0))
 
 
 ## A ring lying flat (its hole points up) until rotated.

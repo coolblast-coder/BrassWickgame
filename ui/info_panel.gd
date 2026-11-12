@@ -65,6 +65,12 @@ static func describe(building: Building) -> String:
 			coal_line += " - got NONE yesterday"
 		lines.append(coal_line)
 
+	if def.food_per_day > 0:
+		var food_line := "Food: uses %d per day" % def.food_per_day
+		if building.road_access and not building.fuelled:
+			food_line += " - got NONE yesterday, stayed shut"
+		lines.append(food_line)
+
 	# Actual figures from the last day, so staffing, smog, strikes, breakdowns
 	# and Coal shortages are all already counted.
 	_append_output(lines, "Food", building.food_made, def.food_output)
@@ -77,6 +83,19 @@ static func describe(building: Building) -> String:
 		else:
 			lines.append("Smog: heavy here")
 	lines.append("Upkeep: %d Crowns per day" % CitySim.UPKEEP_PER_BUILDING)
+	if def.trade_coal > 0:
+		lines.append("Sells up to %d spare Coal a day for %d Crowns," % [def.trade_coal, def.trade_crowns])
+		lines.append("  never dropping stock below %d Coal." % CitySim.TRADE_COAL_RESERVE)
+		lines.append("Sold: %d Crowns of Coal yesterday" % building.crowns_made)
+	if def.citywide_calm > 0.0:
+		lines.append("Lowers Unrest by %.0f a day across the city." % def.citywide_calm)
+	if def.unique:
+		lines.append("Only one can stand in the city.")
+	var condition := " while it runs" if def.workers > 0 else ""
+	if def.calming:
+		lines.append("Calms homes within %d tiles%s." % [def.effect_range, condition])
+	if def.smog_clear_per_day > 0:
+		lines.append("Clears smog within %d tiles%s." % [def.effect_range, condition])
 	if def.repairs:
 		lines.append("Repairs breakdowns within %d tiles for free," % def.effect_range)
 		lines.append("  at the end of each day, while staffed.")

@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="BuildingDef" format=3]
+
+[ext_resource type="Script" path="res://buildings/building_def.gd" id="1_def"]
+
+[resource]
+script = ExtResource("1_def")
+id = &"airship_dock"
+display_name = "Airship Dock"
+footprint = Vector2i(3, 3)
+style = 12
+color = Color(0.72, 0.56, 0.36, 1)
+cost = 200
+workers = 4
+trade_coal = 10
+trade_crowns = 15

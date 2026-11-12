@@ -131,9 +131,12 @@ func _unhandled_input(event: InputEvent) -> void:
 			else:
 				_select_at_cursor()
 	elif event is InputEventKey and event.pressed and not event.echo:
-		# Number keys 1 to 7 pick from the catalog, in build-bar order.
+		# Number keys 1 to 7 pick from the catalog, in build-bar order; with
+		# Shift held they pick from the second row.
 		var slot: int = event.physical_keycode - KEY_1
-		if slot >= 0 and slot < BuildingCatalog.all().size():
+		if slot >= 0 and slot < BuildingCatalog.KEYS_PER_ROW:
+			if event.shift_pressed:
+				slot += BuildingCatalog.KEYS_PER_ROW
 			select_slot(slot)
 
 
@@ -257,7 +260,19 @@ func placement_origin() -> Vector2i:
 func fits_here() -> bool:
 	if mode != Mode.PLACING or not _cursor.in_bounds:
 		return false
+	if _already_built(selected_def):
+		return false
 	return _grid.can_place(Building.cells_for(selected_def, placement_origin(), rotation_steps))
+
+
+## True for a one-per-city building that already stands somewhere.
+func _already_built(def: BuildingDef) -> bool:
+	if not def.unique:
+		return false
+	for building in _grid.all_buildings:
+		if building.def == def:
+			return true
+	return false
 
 
 ## True if the picked building fits at the cursor and the city can pay for it.

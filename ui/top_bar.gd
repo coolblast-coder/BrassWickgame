@@ -47,7 +47,7 @@ func _ready() -> void:
 	_crowns_label = _make_stat_label("Crowns, and the change over the last day")
 	_coal_label = _make_stat_label("Coal, and the change over the last day")
 	_food_label = _make_stat_label("Food, and the change over the last day")
-	_population_label = _make_stat_label("Citizens / room in connected Tenements")
+	_population_label = _make_stat_label("Citizens / room in connected homes")
 	_workers_label = _make_stat_label("Workers with a job / all workers (half the population)")
 	_unrest_label = _make_stat_label("")
 

@@ -2,7 +2,8 @@ class_name SmogMap
 extends RefCounted
 ## Smog as a value per tile, from 0 to MAX. Updated once per day by CitySim:
 ## buildings that ran add smog around themselves, then it clears a little
-## everywhere and more near Tea Gardens. All constants are tuning values.
+## everywhere and more near Tea Gardens and working Smog Scrubbers. All
+## constants are tuning values.
 
 ## Emitted after each daily update.
 signal updated
@@ -52,7 +53,7 @@ func step(buildings: Array[Building]) -> void:
 		for i in _values.size():
 			_values[i] = maxf(0.0, _values[i] - CLEAR_PER_DAY)
 		for building in buildings:
-			if building.def.smog_clear_per_day > 0 and building.road_access:
+			if building.def.smog_clear_per_day > 0 and building.area_effect_active():
 				_clear_around(building.footprint_rect(), building.def.effect_range,
 						building.def.smog_clear_per_day)
 

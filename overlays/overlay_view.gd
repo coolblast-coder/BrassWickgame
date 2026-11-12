@@ -111,8 +111,8 @@ func legend() -> String:
 			return "Smog overlay\nDarker brown: more smog"
 		Mode.UNREST:
 			return "Unrest overlay\nRed: no road access\nYellow: broken down\n" \
-					+ "Orange: machine without Coal\nBlue: cold home\n" \
-					+ "Purple: smoggy home\nGreen: calmed by a Tea Garden"
+					+ "Orange: no Coal (Tavern: no Food)\nBlue: cold home\n" \
+					+ "Purple: smoggy home\nGreen: calmed by a Tea Garden or Tavern"
 		_:
 			return ""
 
@@ -143,7 +143,7 @@ func _draw_unrest() -> void:
 	_image.fill(CLEAR)
 	# Calm areas first, so trouble paints over them.
 	for building in _grid.all_buildings:
-		if building.def.calming and building.road_access:
+		if building.def.calming and building.area_effect_active():
 			_fill(building.footprint_rect().grow(building.def.effect_range), CALM_COLOR)
 	for building in _grid.all_buildings:
 		var color := _trouble_color(building)
