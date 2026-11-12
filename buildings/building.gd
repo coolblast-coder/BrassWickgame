@@ -13,6 +13,8 @@ var rotation_steps: int = 0
 ## Whether this building is served by the Town Hall's road network.
 ## Kept up to date by Main through set_road_access().
 var road_access: bool = true
+## Citizens living here, for homes; set by the daily simulation.
+var residents: int = 0
 ## Workers assigned to this building by the last daily simulation.
 var staff: int = 0
 ## False if this building needed Coal on the last simulated day and got none:
@@ -33,6 +35,9 @@ var smoggy: bool = false
 var broken: bool = false
 
 var _model: Node3D
+## This home's window panes, in a fixed random order: the first ones light up
+## first. Empty for buildings that house nobody.
+var _windows: Array[MeshInstance3D] = []
 ## Shown above buildings the road network does not reach; created on first need.
 var _no_access_marker: MeshInstance3D
 ## Shown above broken buildings; created on first need.
@@ -73,6 +78,34 @@ func setup(building_def: BuildingDef, at_origin: Vector2i, steps: int = 0) -> vo
 	transform = transform_for(def, origin, rotation_steps)
 	_model = BuildingMeshFactory.build(def)
 	add_child(_model)
+	if def.housing > 0:
+		for child in _model.get_children():
+			var pane := child as MeshInstance3D
+			if pane != null and pane.has_meta(BuildingMeshFactory.WINDOW_META):
+				_windows.append(pane)
+		# The same home always lights its windows in the same order.
+		var rng := RandomNumberGenerator.new()
+		rng.seed = hash(origin)
+		for i in range(_windows.size() - 1, 0, -1):
+			var j := rng.randi_range(0, i)
+			var swap := _windows[i]
+			_windows[i] = _windows[j]
+			_windows[j] = swap
+		refresh_windows()
+
+
+## Light a home's windows in proportion to how full it is. All of them go
+## dark when nobody lives here or the home went without Coal.
+func refresh_windows() -> void:
+	if _windows.is_empty():
+		return
+	var lit := 0
+	if residents > 0 and fuelled:
+		lit = maxi(1, roundi(float(_windows.size()) * residents / def.housing))
+	var glow := BuildingMeshFactory.get_glow_material(BuildingMeshFactory.WINDOW_GLOW)
+	var dark := BuildingMeshFactory.get_material(BuildingMeshFactory.WINDOW_DARK, 0.3)
+	for i in _windows.size():
+		_windows[i].material_override = glow if i < lit else dark
 
 
 ## Record whether the Town Hall's road network reaches this building, and

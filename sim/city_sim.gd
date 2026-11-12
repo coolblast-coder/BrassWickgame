@@ -76,6 +76,8 @@ func run_day() -> void:
 	# one day of output unless the player pays to fix it at once.
 	_repair_with_yards()
 	_roll_breakdowns()
+	for building in _grid.all_buildings:
+		building.refresh_windows()
 	_city.crowns_change = _city.crowns - crowns_before
 	_city.coal_change = _city.coal - coal_before
 	_city.food_change = _city.food - food_before
@@ -87,20 +89,40 @@ func run_day() -> void:
 ## the next day. When Unrest is high, a share of everyone leaves each day.
 func _update_population() -> void:
 	var capacity := 0
-	var homes := 0
+	var homes: Array[Building] = []
 	for building in _grid.all_buildings:
+		building.residents = 0
 		if building.def.housing > 0 and building.road_access:
 			capacity += building.def.housing
-			homes += 1
+			homes.append(building)
 	_city.housing_capacity = capacity
 	var population := mini(_city.population, capacity)
 	# Unrest here is the value from the end of yesterday.
 	if _city.unrest > UNREST_LEAVE_ABOVE and population > 0:
 		population -= maxi(1, ceili(population * LEAVE_SHARE_PER_DAY))
 	elif _city.unrest < UNREST_MOVE_IN_BELOW:
-		population = mini(capacity, population + homes * MOVE_IN_PER_HOME)
+		population = mini(capacity, population + homes.size() * MOVE_IN_PER_HOME)
 	_city.population = population
 	_city.peak_population = maxi(_city.peak_population, population)
+	_house_citizens(homes, population, capacity)
+
+
+## Share the citizens out between the connected homes, in proportion to how
+## many each can hold. Odd ones left over go to the homes placed first.
+func _house_citizens(homes: Array[Building], population: int, capacity: int) -> void:
+	if capacity <= 0:
+		return
+	var unhoused := population
+	for home in homes:
+		@warning_ignore("integer_division")
+		home.residents = population * home.def.housing / capacity
+		unhoused -= home.residents
+	for home in homes:
+		if unhoused <= 0:
+			break
+		if home.residents < home.def.housing:
+			home.residents += 1
+			unhoused -= 1
 
 
 ## Half the population works. Workers fill connected, unbroken workplaces in

@@ -54,7 +54,7 @@ static func describe(building: Building) -> String:
 		lines.append("  Needs a road, edge to edge, that leads to the Town Hall.")
 
 	if def.housing > 0:
-		lines.append("Houses: %d citizens" % def.housing)
+		lines.append("Residents: %d / %d" % [building.residents, def.housing])
 
 	if def.workers > 0:
 		lines.append("Workers: %d / %d" % [building.staff, def.workers])

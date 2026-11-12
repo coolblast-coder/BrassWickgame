@@ -22,6 +22,9 @@ const PLASTER := Color(0.9, 0.87, 0.8)
 const STONE := Color(0.6, 0.58, 0.54)
 const TERRACOTTA := Color(0.62, 0.36, 0.26)
 const WINDOW_GLOW := Color(1.0, 0.82, 0.45)
+const WINDOW_DARK := Color(0.11, 0.13, 0.17)
+## Metadata key set on every window pane, so a Building can find its windows.
+const WINDOW_META := &"window"
 const IRON := Color(0.15, 0.2, 0.19)
 const STEEL := Color(0.5, 0.51, 0.54)
 const SOIL := Color(0.24, 0.17, 0.12)
@@ -445,6 +448,7 @@ static func _glass(part: MeshInstance3D, color: Color) -> void:
 static func _window(root: Node3D, size: Vector3, center: Vector3) -> MeshInstance3D:
 	var pane := _box(root, size, center, WINDOW_GLOW)
 	pane.material_override = get_glow_material(WINDOW_GLOW)
+	pane.set_meta(WINDOW_META, true)
 	return pane
 
 
