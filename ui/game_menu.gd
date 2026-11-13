@@ -38,7 +38,7 @@ func _ready() -> void:
 		"1-5  build categories        Shift+number  pick a building",
 		"R  rotate        X  demolish        Right click  cancel",
 		"F  repair        P  switch a workplace off or on",
-		"O  overlays        G  statistics        M  mute",
+		"O  overlays        G  statistics        T  policies        M  mute",
 		"N  day and night cycle on or off",
 		"Space  pause        Tab  speed",
 		"WASD / arrows  move        Q E  turn        Wheel  zoom",

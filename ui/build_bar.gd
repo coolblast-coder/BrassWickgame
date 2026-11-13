@@ -15,6 +15,7 @@ signal demolish_pressed
 signal overlay_pressed
 signal stats_pressed
 signal menu_pressed
+signal policies_pressed
 ## Any button of the menu was pressed, by mouse or by key.
 signal clicked
 
@@ -74,6 +75,8 @@ func _ready() -> void:
 	set_overlay_name("none")
 	var stats_button := _make_button(tab_row, "G  Stats")
 	stats_button.pressed.connect(func() -> void: stats_pressed.emit())
+	var policies_button := _make_button(tab_row, "T  Policies")
+	policies_button.pressed.connect(func() -> void: policies_pressed.emit())
 	var menu_button := _make_button(tab_row, "Esc  Menu")
 	menu_button.pressed.connect(func() -> void: menu_pressed.emit())
 	set_tier(0)

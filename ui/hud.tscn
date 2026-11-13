@@ -10,6 +10,9 @@
 [ext_resource type="Script" path="res://ui/stats_panel.gd" id="8_stats"]
 [ext_resource type="Script" path="res://ui/advisor_panel.gd" id="9_advisor"]
 [ext_resource type="Script" path="res://ui/game_menu.gd" id="10_menu"]
+[ext_resource type="Script" path="res://ui/policies_panel.gd" id="11_policies"]
+[ext_resource type="Script" path="res://ui/event_dialog.gd" id="12_dialog"]
+[ext_resource type="Script" path="res://ui/council_panel.gd" id="13_council"]
 
 [node name="HUD" type="CanvasLayer"]
 script = ExtResource("1_hud")
@@ -77,6 +80,13 @@ layout_mode = 2
 size_flags_horizontal = 8
 script = ExtResource("4_info")
 
+[node name="CouncilPanel" type="PanelContainer" parent="RightColumn"]
+visible = false
+layout_mode = 2
+size_flags_horizontal = 8
+mouse_filter = 2
+script = ExtResource("13_council")
+
 [node name="AdvisorPanel" type="PanelContainer" parent="RightColumn"]
 visible = false
 layout_mode = 2
@@ -140,6 +150,36 @@ offset_bottom = 20.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("8_stats")
+
+[node name="PoliciesPanel" type="PanelContainer" parent="."]
+visible = false
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -20.0
+offset_top = -20.0
+offset_right = 20.0
+offset_bottom = 20.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("11_policies")
+
+[node name="EventDialog" type="PanelContainer" parent="."]
+visible = false
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -20.0
+offset_top = -20.0
+offset_right = 20.0
+offset_bottom = 20.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("12_dialog")
 
 [node name="GameOverPanel" type="ColorRect" parent="."]
 anchors_preset = 15

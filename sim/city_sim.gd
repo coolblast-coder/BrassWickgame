@@ -90,6 +90,12 @@ var _steam_pool: int = 0
 ## Buildings that went without Steam today.
 var _unpowered: int = 0
 
+## True while masks handed out in a Smog Storm keep smoggy homes from
+## adding Unrest. Set and cleared by CityEvents.
+var smog_unrest_suppressed: bool = false
+## The Town Hall's policies, set by Main; null means none are in force.
+var policies: Policies
+
 ## Multiplier on all Coal dug. CityEvents lowers it during a Coal Strike.
 var coal_output_factor: float = 1.0
 
@@ -143,6 +149,7 @@ func run_day(day: int) -> void:
 	_update_population()
 	_assign_workers()
 	_run_economy()
+	_smog.emission_factor = Policies.CLEAN_SMOG_FACTOR if _policy(Policies.CLEAN_AIR) else 1.0
 	_smog.step(_grid.all_buildings)
 	_update_unrest()
 	# Repairs come after the day's work, so a breakdown always costs at least
@@ -332,7 +339,13 @@ func _run_economy() -> void:
 
 	@warning_ignore("integer_division")
 	var tax := _city.population / CITIZENS_PER_TAX_CROWN
+	if _policy(Policies.HEAVY_TAXES):
+		tax = roundi(tax * Policies.TAX_FACTOR)
+	if _policy(Policies.CURFEW):
+		tax = roundi(tax * Policies.CURFEW_TAX_FACTOR)
 	var food_needed := _city.population * FOOD_PER_CITIZEN
+	if _policy(Policies.RATIONING):
+		food_needed = ceili(food_needed * Policies.RATION_FOOD_FACTOR)
 	var food_available := _city.food + food_made
 
 	# Taverns open on whatever Food is left once the citizens have eaten.
@@ -457,6 +470,12 @@ func _produce(building: Building) -> void:
 	var staffing := _staffing(building)
 	var growth := Seasons.FOOD_FACTOR[_season] * (SMOGGY_FOOD_FACTOR if building.smoggy else 1.0)
 	building.ran_today = staffing > 0.0
+	# Policies change what a day's work yields; from here on `staffing` is
+	# the share of full output, not of full staff.
+	if _policy(Policies.DOUBLE_SHIFTS):
+		staffing *= Policies.SHIFT_OUTPUT_FACTOR
+	if _policy(Policies.CLEAN_AIR) and def.smog_per_day > 0:
+		staffing *= Policies.CLEAN_OUTPUT_FACTOR
 	building.food_made = roundi(def.food_output * staffing * growth)
 	building.coal_made = roundi(def.coal_output * staffing * coal_output_factor)
 	building.crowns_made = roundi(def.crowns_output * staffing)
@@ -516,7 +535,8 @@ func _update_unrest() -> void:
 	change += _cause(causes, "No Goods",
 			UNREST_NO_GOODS * _share(_city.citizens_without_goods, _city.population))
 	change += _cause(causes, "Cold homes", UNREST_COLD * _share(_city.cold_homes, homes))
-	change += _cause(causes, "Smoggy homes", UNREST_SMOG * _share(smoggy_homes, homes))
+	if not smog_unrest_suppressed:
+		change += _cause(causes, "Smoggy homes", UNREST_SMOG * _share(smoggy_homes, homes))
 	change += _cause(causes, "Idle workers", UNREST_IDLE * _share(idle_workers, _city.workers_total))
 	change += _cause(causes, "Broken buildings",
 			minf(UNREST_BROKEN_MAX, UNREST_PER_BROKEN * _city.broken_buildings))
@@ -529,6 +549,14 @@ func _update_unrest() -> void:
 		if building.def.citywide_calm > 0.0 and building.ran_today:
 			landmark_calm += building.def.citywide_calm
 	change += _cause(causes, "Clocktower", -landmark_calm)
+	if _policy(Policies.RATIONING):
+		change += _cause(causes, "Rationing", Policies.RATION_UNREST)
+	if _policy(Policies.DOUBLE_SHIFTS):
+		change += _cause(causes, "Double shifts", Policies.SHIFT_UNREST)
+	if _policy(Policies.HEAVY_TAXES):
+		change += _cause(causes, "Heavy taxes", Policies.TAX_UNREST)
+	if _policy(Policies.CURFEW):
+		change += _cause(causes, "Curfew", Policies.CURFEW_UNREST)
 	change += _cause(causes, "Baseline calm", -UNREST_BASELINE_CALM)
 
 	_city.unrest_causes = causes
@@ -579,7 +607,15 @@ func breakdown_chance() -> float:
 	for building in _grid.all_buildings:
 		if building.def.can_break:
 			machines += 1
-	return minf(BREAKDOWN_MAX, BREAKDOWN_BASE + BREAKDOWN_PER_MACHINE * machines)
+	var chance := minf(BREAKDOWN_MAX, BREAKDOWN_BASE + BREAKDOWN_PER_MACHINE * machines)
+	if _policy(Policies.DOUBLE_SHIFTS):
+		chance *= Policies.SHIFT_BREAKDOWN_FACTOR
+	return chance
+
+
+## Whether a Town Hall policy is in force.
+func _policy(policy: StringName) -> bool:
+	return policies != null and policies.is_on(policy)
 
 
 ## Machines that ran today may break down. They stay broken, producing

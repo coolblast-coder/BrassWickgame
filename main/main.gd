@@ -7,6 +7,8 @@ var grid := CityGrid.new()
 var city := CityState.new()
 ## Smog per tile.
 var smog := SmogMap.new()
+## The Town Hall's policies.
+var policies := Policies.new()
 ## Day-by-day record of the city's figures, for the statistics screen.
 var history := CityHistory.new()
 
@@ -14,12 +16,15 @@ var history := CityHistory.new()
 ## at most, however many tiles changed (a dragged road adds many at once).
 var _road_access_dirty: bool = false
 var _sim: CitySim
+var _council: Council
 var _events: CityEvents
 var _game_over: bool = false
 ## Set when an event has sounded today, so the day bell stays quiet.
 var _event_sounded: bool = false
 ## True if opening the menu paused the clock, so closing it resumes.
 var _paused_by_menu: bool = false
+## True if an event's decision paused the clock, so deciding resumes.
+var _paused_by_event: bool = false
 
 @onready var _tile_cursor: TileCursor = $TileCursor
 @onready var _hud: HUD = $HUD
@@ -64,6 +69,12 @@ func _ready() -> void:
 	_hud.game_menu.main_menu_pressed.connect(
 			func() -> void: get_tree().change_scene_to_file("res://menu/main_menu.tscn"))
 	_sim = CitySim.new(grid, city, smog)
+	_sim.policies = policies
+	_hud.bind_policies(policies)
+	_hud.policies_panel.policy_pressed.connect(_on_policy_pressed)
+	_council = Council.new(grid, city)
+	_hud.bind_council(_council)
+	_council.request_finished.connect(_on_request_finished)
 	_events = CityEvents.new(grid, city, _sim, smog)
 	_hud.bind_events(_events)
 	_overlay.setup(smog, grid)
@@ -75,7 +86,9 @@ func _ready() -> void:
 	city.changed.connect(func() -> void: _sound.set_city_size(city.population))
 	_build_controller.feedback.connect(_on_build_feedback)
 	_hud.build_bar.clicked.connect(func() -> void: _sound.play(&"click", -8.0))
-	_events.event_fired.connect(_on_event_sounded)
+	_events.event_fired.connect(func(_title: String, _message: String) -> void: _event_sounded = true)
+	_events.choice_offered.connect(_on_choice_offered)
+	_events.choice_resolved.connect(_on_choice_resolved)
 	city.tier_reached.connect(func(_tier: int) -> void: _on_event_sounded("", ""))
 	grid.buildings_changed.connect(func() -> void: _road_access_dirty = true)
 	_place_town_hall()
@@ -111,6 +124,35 @@ func _on_overlay_mode_changed(_mode: OverlayView.Mode) -> void:
 	_hud.show_legend(_overlay.legend())
 
 
+## An event is waiting for a decision: sound the whistle and stop the clock.
+func _on_choice_offered(_offer: Dictionary) -> void:
+	_on_event_sounded("", "")
+	_paused_by_event = not _clock.paused
+	if _paused_by_event:
+		_clock.toggle_pause()
+
+
+func _on_choice_resolved() -> void:
+	if _paused_by_event:
+		_paused_by_event = false
+		if _clock.paused:
+			_clock.toggle_pause()
+
+
+## The council's request was met, or ran out of time.
+func _on_request_finished(success: bool, title: String, message: String) -> void:
+	_hud.show_notice(title, message)
+	_event_sounded = true
+	_sound.play(&"event" if success else &"error", -4.0)
+
+
+## A policy switch was pressed: change it if the cooldown allows.
+func _on_policy_pressed(policy: StringName) -> void:
+	if _game_over or city.tier < Policies.FROM_TIER:
+		return
+	_sound.play(&"click" if policies.toggle(policy, _clock.day) else &"error", -6.0)
+
+
 ## Dress the landscape for the clock's season and turn the wind to match.
 func _show_season(instant: bool) -> void:
 	var season := Seasons.of_day(_clock.day)
@@ -135,6 +177,9 @@ func _on_menu_toggled(open: bool) -> void:
 func save_game() -> void:
 	if _game_over:
 		return
+	if _events.has_pending():
+		_hud.show_notice("Decide first", "The game cannot be saved while an event awaits your decision.")
+		return
 	var buildings := []
 	for building in grid.all_buildings:
 		buildings.append(building.to_save())
@@ -144,6 +189,8 @@ func save_game() -> void:
 		"events": _events.to_save(),
 		"smog": smog.to_save(),
 		"history": history.to_save(),
+		"policies": policies.to_save(),
+		"council": _council.to_save(),
 		"cleared_trees": _vegetation.to_save(),
 		"buildings": buildings,
 	})
@@ -184,6 +231,8 @@ func _apply_save(data: Dictionary) -> void:
 	city.from_save(data.get("city", {}))
 	_events.from_save(data.get("events", {}))
 	history.from_save(data.get("history", {}))
+	policies.from_save(data.get("policies", {}))
+	_council.from_save(data.get("council", {}))
 	_clock.from_save(data.get("clock", {}))
 	city.day = _clock.day
 	_show_season(true)
@@ -200,7 +249,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.physical_keycode == KEY_F10:
 			load_game()
 			return
-	# Development aids: F1 to F4 fire each event at once, to test them without
+	# Development aids: F1 to F5 fire each event at once, to test them without
 	# waiting for the dice, F6 unlocks the next city tier, and F7 skips to the
 	# next season. Not in exported builds.
 	if not OS.is_debug_build() or _game_over:
@@ -215,6 +264,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				_events.fire(CityEvents.Type.SMOG_STORM, _clock.day)
 			KEY_F4:
 				_events.fire(CityEvents.Type.AIRSHIP_TRADER, _clock.day)
+			KEY_F5:
+				_events.fire(CityEvents.Type.FESTIVAL, _clock.day)
 			KEY_F7:
 				# Skip to the first day of the next season.
 				_clock.day += Seasons.days_until_next(_clock.day)
@@ -243,6 +294,7 @@ func _on_day_ended(day: int) -> void:
 		_end_game(day)
 		return
 	_events.day_passed(day)
+	_council.day_passed(day)
 	# Announce a change of season, once the seasons matter.
 	var season := Seasons.of_day(day + 1)
 	if season != Seasons.of_day(day):

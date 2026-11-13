@@ -11,11 +11,14 @@ extends CanvasLayer
 @onready var _warning_label: Label = $WarningLabel
 @onready var _info_panel: InfoPanel = $RightColumn/InfoPanel
 @onready var _advisor: AdvisorPanel = $RightColumn/AdvisorPanel
+@onready var _council_panel: CouncilPanel = $RightColumn/CouncilPanel
 @onready var _event_banner: EventBanner = $EventBanner
 @onready var _game_over_panel: GameOverPanel = $GameOverPanel
 @onready var _card: BuildingCard = $BuildingCard
 @onready var _stats_panel: StatsPanel = $StatsPanel
 @onready var game_menu: GameMenu = $GameMenu
+@onready var policies_panel: PoliciesPanel = $PoliciesPanel
+@onready var _event_dialog: EventDialog = $EventDialog
 
 var _city: CityState
 var _events: CityEvents
@@ -48,6 +51,7 @@ func _ready() -> void:
 	build_bar.slot_hovered.connect(_on_slot_hovered)
 	build_bar.stats_pressed.connect(_stats_panel.toggle)
 	build_bar.menu_pressed.connect(game_menu.open)
+	build_bar.policies_pressed.connect(_toggle_policies)
 	_advisor.jump_requested.connect(func(where: Vector3) -> void: jump_requested.emit(where))
 
 
@@ -56,21 +60,53 @@ func _unhandled_input(event: InputEvent) -> void:
 	if key == null or not key.pressed or key.echo:
 		return
 	if key.physical_keycode == KEY_G:
+		policies_panel.hide()
 		_stats_panel.toggle()
+		get_viewport().set_input_as_handled()
+	elif key.physical_keycode == KEY_T:
+		_toggle_policies()
 		get_viewport().set_input_as_handled()
 	elif key.physical_keycode == KEY_ESCAPE:
 		# Esc closes whatever is open; with nothing open, no tool in hand and
 		# no building selected, it opens the menu. Otherwise it is left for
 		# the build controller, which cancels or deselects.
-		if game_menu.visible:
+		if _event_dialog.visible:
+			# An event must be decided; Esc does nothing until it is.
+			pass
+		elif game_menu.visible:
 			game_menu.close()
 		elif _stats_panel.visible:
 			_stats_panel.toggle()
+		elif policies_panel.visible:
+			policies_panel.toggle()
 		elif _idle and _selected == null:
 			game_menu.open()
 		else:
 			return
 		get_viewport().set_input_as_handled()
+
+
+## An event wants a decision: clear the centre of the screen for it.
+func _on_choice_offered(offer: Dictionary) -> void:
+	_stats_panel.hide()
+	policies_panel.hide()
+	_event_dialog.show_offer(offer)
+
+
+## Only one of the two centre panels shows at a time.
+func _toggle_policies() -> void:
+	_stats_panel.hide()
+	policies_panel.toggle()
+
+
+## Called once by Main.
+func bind_council(council: Council) -> void:
+	_council_panel.bind(council)
+
+
+## Called once by Main.
+func bind_policies(policies: Policies) -> void:
+	policies_panel.bind(policies, _city)
 
 
 ## Called once by Main. The advisor reads the map and the city.
@@ -119,6 +155,8 @@ func bind_city(city: CityState) -> void:
 func bind_events(events: CityEvents) -> void:
 	_events = events
 	events.event_fired.connect(_event_banner.show_event)
+	events.choice_offered.connect(_on_choice_offered)
+	_event_dialog.chosen.connect(events.choose)
 	events.status_changed.connect(_refresh_warnings)
 
 

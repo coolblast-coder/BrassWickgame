@@ -24,6 +24,9 @@ const DRIFT_SHARE := 0.2
 
 ## Set during a Smog Storm: nothing clears, not even near Tea Gardens.
 var clearing_paused: bool = false
+## Multiplier on all smog given off. CitySim lowers it under the Clean Air
+## Act.
+var emission_factor: float = 1.0
 ## The way the wind blows, as a step on the grid; zero for still air.
 ## Set by CitySim from the season.
 var wind: Vector2i = Vector2i.ZERO
@@ -54,7 +57,7 @@ func max_over(building: Building) -> float:
 func step(buildings: Array[Building]) -> void:
 	for building in buildings:
 		if building.def.smog_per_day > 0 and building.ran_today:
-			_emit_around(building.footprint_rect(), building.def.smog_per_day)
+			_emit_around(building.footprint_rect(), building.def.smog_per_day * emission_factor)
 
 	_drift()
 
