@@ -12,6 +12,7 @@
 [ext_resource type="Script" path="res://decor/airships.gd" id="10_airships"]
 [ext_resource type="Script" path="res://decor/hills.gd" id="11_hills"]
 [ext_resource type="Script" path="res://decor/vegetation.gd" id="12_vegetation"]
+[ext_resource type="Script" path="res://audio/sound_player.gd" id="13_sound"]
 
 [sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
 sky_top_color = Color(0.36, 0.5, 0.66, 1)
@@ -96,6 +97,9 @@ script = ExtResource("10_airships")
 
 [node name="CameraRig" parent="." instance=ExtResource("2_cam")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 64, 0, 64)
+
+[node name="Sound" type="Node" parent="."]
+script = ExtResource("13_sound")
 
 [node name="GameClock" type="Node" parent="."]
 script = ExtResource("7_clock")

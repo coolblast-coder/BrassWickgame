@@ -13,6 +13,8 @@ signal slot_pressed(index: int)
 signal slot_hovered(index: int)
 signal demolish_pressed
 signal overlay_pressed
+## Any button of the menu was pressed, by mouse or by key.
+signal clicked
 
 ## Set to false to stop the menu reacting to keys (after the game ends).
 var enabled: bool = true
@@ -81,9 +83,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		if _open_category >= 0 and number < _row_slots[_open_category].size():
 			var index: int = _row_slots[_open_category][number]
 			slot_pressed.emit(index)
+			clicked.emit()
 			get_viewport().set_input_as_handled()
 	elif number < _tabs.size() and _tabs[number].visible:
 		toggle_category(number)
+		clicked.emit()
 		get_viewport().set_input_as_handled()
 
 
@@ -133,5 +137,6 @@ func _make_button(row: HBoxContainer, label: String) -> Button:
 	button.text = label
 	# Keep keyboard focus off the buttons, so Space/Enter/arrows stay game keys.
 	button.focus_mode = Control.FOCUS_NONE
+	button.pressed.connect(func() -> void: clicked.emit())
 	row.add_child(button)
 	return button

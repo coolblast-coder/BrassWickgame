@@ -14,6 +14,8 @@ var _road_access_dirty: bool = false
 var _sim: CitySim
 var _events: CityEvents
 var _game_over: bool = false
+## Set when an event has sounded today, so the day bell stays quiet.
+var _event_sounded: bool = false
 
 @onready var _tile_cursor: TileCursor = $TileCursor
 @onready var _hud: HUD = $HUD
@@ -25,6 +27,7 @@ var _game_over: bool = false
 @onready var _airships: Airships = $Airships
 @onready var _hills: Hills = $Hills
 @onready var _vegetation: Vegetation = $Vegetation
+@onready var _sound: SoundPlayer = $Sound
 
 
 func _ready() -> void:
@@ -48,6 +51,10 @@ func _ready() -> void:
 	_walkers.setup(grid, city, _clock)
 	_airships.setup(city, _clock)
 	_clock.day_ended.connect(_on_day_ended)
+	city.changed.connect(func() -> void: _sound.set_city_size(city.population))
+	_build_controller.feedback.connect(_on_build_feedback)
+	_hud.build_bar.clicked.connect(func() -> void: _sound.play(&"click", -8.0))
+	_events.event_fired.connect(_on_event_sounded)
 	grid.buildings_changed.connect(func() -> void: _road_access_dirty = true)
 	_place_town_hall()
 	_vegetation.setup(grid, _hills)
@@ -96,11 +103,45 @@ func _on_day_ended(day: int) -> void:
 	if _road_access_dirty:
 		_road_access_dirty = false
 		_refresh_road_access()
+	var broken_before := _count_broken()
+	_event_sounded = false
 	_sim.run_day()
 	if city.days_at_max_unrest >= CitySim.WALKOUT_DAYS:
 		_end_game(day)
 		return
 	_events.day_passed(day)
+	# One sound per day at most: an event's whistle, else a new breakdown,
+	# else the day bell.
+	if _event_sounded:
+		pass
+	elif _count_broken() > broken_before:
+		_sound.play(&"breakdown", -4.0)
+	else:
+		_sound.play(&"day_bell", -12.0)
+
+
+func _count_broken() -> int:
+	var broken := 0
+	for building in grid.all_buildings:
+		if building.broken:
+			broken += 1
+	return broken
+
+
+func _on_event_sounded(_title: String, _message: String) -> void:
+	_event_sounded = true
+	_sound.play(&"event", -3.0)
+
+
+## Sounds for the player's own actions. Repeated ones vary in pitch a little.
+func _on_build_feedback(sound: StringName) -> void:
+	match sound:
+		&"error":
+			_sound.play(sound, -10.0)
+		&"road":
+			_sound.play(sound, -6.0, 0.15)
+		_:
+			_sound.play(sound, -3.0, 0.08)
 
 
 ## The Great Walkout: stop time, put the tools away and show the score.
@@ -109,6 +150,7 @@ func _end_game(days_survived: int) -> void:
 	_clock.stop()
 	_build_controller.shut_down()
 	_hud.build_bar.enabled = false
+	_sound.play(&"game_over")
 	_hud.show_game_over(city.peak_population, days_survived)
 
 

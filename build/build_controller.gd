@@ -7,6 +7,9 @@ extends Node
 signal mode_changed(mode: Mode, def: BuildingDef)
 ## Emitted when a building is selected for inspection; null when deselected.
 signal selection_changed(building: Building)
+## Something happened that should be heard: &"build", &"road", &"demolish",
+## &"repair", or &"error" for a click that could not be carried out.
+signal feedback(sound: StringName)
 
 enum Mode { IDLE, PLACING, DEMOLISHING }
 
@@ -171,9 +174,11 @@ func repair_selected() -> bool:
 	if selected_building == null or not selected_building.broken:
 		return false
 	if not _city.can_afford(CitySim.REPAIR_COST):
+		feedback.emit(&"error")
 		return false
 	selected_building.set_broken(false)
 	_city.crowns -= CitySim.REPAIR_COST  # Also refreshes the HUD.
+	feedback.emit(&"repair")
 	return true
 
 
@@ -228,6 +233,7 @@ func try_demolish() -> bool:
 	_demolish_target = null
 	_grid.remove_building(building)
 	building.queue_free()
+	feedback.emit(&"demolish")
 	return true
 
 
@@ -276,9 +282,11 @@ func can_place_here() -> bool:
 ## so several can be put down in a row.
 func try_place() -> bool:
 	if not can_place_here():
+		feedback.emit(&"error")
 		return false
 	_city.crowns -= selected_def.cost
 	place_building(selected_def, placement_origin(), rotation_steps)
+	feedback.emit(&"build")
 	return true
 
 
@@ -338,11 +346,14 @@ func _update_drag() -> void:
 ## Lay a road on every free tile of the dragged line, paying per tile, until
 ## the Crowns run out. Blocked tiles are skipped.
 func _finish_drag() -> void:
+	var laid := 0
 	for cell in _drag_cells:
 		var one: Array[Vector2i] = [cell]
 		if _grid.can_place(one) and _city.can_afford(selected_def.cost):
 			_city.crowns -= selected_def.cost
 			place_building(selected_def, cell, 0)
+			laid += 1
+	feedback.emit(&"road" if laid > 0 else &"error")
 	_end_drag()
 
 
