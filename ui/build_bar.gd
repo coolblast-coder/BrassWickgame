@@ -30,6 +30,8 @@ var _row_slots: Array[Array] = []
 var _buttons: Array[Button] = []
 var _demolish_button: Button
 var _overlay_button: Button
+## The city's tier; buildings of a higher tier are locked.
+var _tier: int = 0
 
 
 func _ready() -> void:
@@ -68,6 +70,24 @@ func _ready() -> void:
 	_overlay_button = _make_button(tab_row, "")
 	_overlay_button.pressed.connect(func() -> void: overlay_pressed.emit())
 	set_overlay_name("none")
+	set_tier(0)
+
+
+## Lock the buildings the city has not grown into yet: their buttons are
+## greyed out and name the tier that unlocks them.
+func set_tier(tier: int) -> void:
+	_tier = tier
+	var defs := BuildingCatalog.all()
+	for c in _row_slots.size():
+		for n in _row_slots[c].size():
+			var index: int = _row_slots[c][n]
+			var def := defs[index]
+			var locked := def.tier > tier
+			_buttons[index].disabled = locked
+			if locked:
+				_buttons[index].text = "%s  (%s)" % [def.display_name, CityState.TIER_NAMES[def.tier]]
+			else:
+				_buttons[index].text = "Shift+%d  %s" % [n + 1, def.display_name]
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -82,8 +102,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	if key.shift_pressed:
 		if _open_category >= 0 and number < _row_slots[_open_category].size():
 			var index: int = _row_slots[_open_category][number]
-			slot_pressed.emit(index)
-			clicked.emit()
+			if not _buttons[index].disabled:
+				slot_pressed.emit(index)
+				clicked.emit()
 			get_viewport().set_input_as_handled()
 	elif number < _tabs.size() and _tabs[number].visible:
 		toggle_category(number)

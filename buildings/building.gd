@@ -29,6 +29,12 @@ var ran_today: bool = false
 var food_made: int = 0
 var coal_made: int = 0
 var crowns_made: int = 0
+var water_made: int = 0
+var goods_made: int = 0
+var steam_made: int = 0
+## False if this building needed Steam on the last simulated day and got
+## none, so it did not run.
+var powered: bool = true
 ## True if any tile under this building is at or above the smoggy threshold.
 var smoggy: bool = false
 ## True while broken down: produces nothing and burns no Coal until repaired.

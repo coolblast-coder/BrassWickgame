@@ -1,8 +1,9 @@
 class_name InfoPanel
 extends PanelContainer
-## Details of the selected building: road access, workers, output, Coal, smog
-## and condition, with a Repair button when it is broken. Staffing, output and
-## Coal figures are as of the last simulated day.
+## Details of the selected building: road access, residents, workers, what it
+## uses (Coal, Food, Steam) and makes, smog and condition, with a Repair
+## button when it is broken. Staffing, output and supply figures are as of the
+## last simulated day.
 
 ## The Repair button was clicked for the building on show.
 signal repair_pressed
@@ -56,6 +57,9 @@ static func describe(building: Building) -> String:
 	if def.housing > 0:
 		lines.append("Residents: %d / %d" % [building.residents, def.housing])
 
+	if def.wants_goods:
+		lines.append("Residents expect Goods from the %s tier on." % CityState.TIER_NAMES[CitySim.GOODS_TIER])
+
 	if def.workers > 0:
 		lines.append("Workers: %d / %d" % [building.staff, def.workers])
 
@@ -64,6 +68,13 @@ static func describe(building: Building) -> String:
 		if building.road_access and not building.fuelled:
 			coal_line += " - got NONE yesterday"
 		lines.append(coal_line)
+
+	if def.steam_per_day > 0:
+		var steam_line := "Steam: uses %d per day from the %s tier on" % [
+				def.steam_per_day, CityState.TIER_NAMES[CitySim.STEAM_TIER]]
+		if building.road_access and not building.powered:
+			steam_line += " - got NONE yesterday, did not run"
+		lines.append(steam_line)
 
 	if def.food_per_day > 0:
 		var food_line := "Food: uses %d per day" % def.food_per_day
@@ -76,13 +87,16 @@ static func describe(building: Building) -> String:
 	_append_output(lines, "Food", building.food_made, def.food_output)
 	_append_output(lines, "Coal", building.coal_made, def.coal_output)
 	_append_output(lines, "Crowns", building.crowns_made, def.crowns_output)
+	_append_output(lines, "Water", building.water_made, def.water_output)
+	_append_output(lines, "Goods", building.goods_made, def.goods_output)
+	_append_output(lines, "Steam", building.steam_made, def.steam_output)
 
 	if building.smoggy:
 		if def.food_output > 0:
 			lines.append("Smog: heavy here - grows half as much")
 		else:
 			lines.append("Smog: heavy here")
-	lines.append("Upkeep: %d Crowns per day" % CitySim.UPKEEP_PER_BUILDING)
+	lines.append("Upkeep: %d Crowns per day" % CitySim.UPKEEP_BY_TIER[BuildingCard.city_tier])
 	if def.trade_coal > 0:
 		lines.append("Sells up to %d spare Coal a day for %d Crowns," % [def.trade_coal, def.trade_crowns])
 		lines.append("  never dropping stock below %d Coal." % CitySim.TRADE_COAL_RESERVE)

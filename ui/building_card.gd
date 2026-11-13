@@ -5,6 +5,10 @@ extends PanelContainer
 
 const WIDTH := 320.0
 
+## The city's tier, kept up to date by the HUD, so a card can say whether a
+## building is still locked.
+static var city_tier: int = 0
+
 var _label: Label
 
 
@@ -49,6 +53,9 @@ static func describe_def(def: BuildingDef) -> String:
 		lines.append("%s  -  %d Crowns" % [def.display_name, def.cost])
 	else:
 		lines.append(def.display_name)
+	if def.tier > city_tier:
+		lines.append("LOCKED: unlocks when the city becomes a %s (%d citizens)" % [
+				CityState.TIER_NAMES[def.tier], CityState.TIER_POPULATION[def.tier]])
 	if not def.description.is_empty():
 		lines.append("")
 		lines.append(def.description)
@@ -68,6 +75,17 @@ static func describe_def(def: BuildingDef) -> String:
 		lines.append("Makes %d Coal a day" % def.coal_output)
 	if def.crowns_output > 0:
 		lines.append("Makes %d Crowns a day" % def.crowns_output)
+	if def.water_output > 0:
+		lines.append("Makes %d Water a day" % def.water_output)
+	if def.steam_per_day > 0:
+		lines.append("Uses %d Steam a day from the %s tier on" % [
+				def.steam_per_day, CityState.TIER_NAMES[CitySim.STEAM_TIER]])
+	if def.steam_output > 0:
+		lines.append("Makes %d Steam a day" % def.steam_output)
+	if def.goods_output > 0:
+		lines.append("Makes %d Goods a day" % def.goods_output)
+	if def.wants_goods:
+		lines.append("Residents expect Goods from the %s tier on" % CityState.TIER_NAMES[CitySim.GOODS_TIER])
 	if def.trade_coal > 0:
 		lines.append("Sells up to %d Coal a day for %d Crowns" % [def.trade_coal, def.trade_crowns])
 	if def.calming:
@@ -85,7 +103,7 @@ static func describe_def(def: BuildingDef) -> String:
 	if def.unique:
 		lines.append("One per city")
 	if def.demolishable and not def.is_road:
-		lines.append("Upkeep: %d Crowns a day" % CitySim.UPKEEP_PER_BUILDING)
+		lines.append("Upkeep: %d Crowns a day" % CitySim.UPKEEP_BY_TIER[city_tier])
 	return "\n".join(lines)
 
 

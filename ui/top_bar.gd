@@ -18,6 +18,9 @@ var _speed_button: Button
 var _crowns_label: Label
 var _coal_label: Label
 var _food_label: Label
+var _water_label: Label
+var _goods_label: Label
+var _steam_label: Label
 var _population_label: Label
 var _workers_label: Label
 var _unrest_label: Label
@@ -47,6 +50,12 @@ func _ready() -> void:
 	_crowns_label = _make_stat_label("Crowns, and the change over the last day")
 	_coal_label = _make_stat_label("Coal, and the change over the last day")
 	_food_label = _make_stat_label("Food, and the change over the last day")
+	_water_label = _make_stat_label("Water, and the change over the last day.\nCitizens drink 1 a day for every %d of them." % CitySim.CITIZENS_PER_WATER)
+	_water_label.hide()
+	_goods_label = _make_stat_label("Goods, and the change over the last day.\nTownhouse residents take 1 a day for every %d of them." % CitySim.CITIZENS_PER_GOODS)
+	_goods_label.hide()
+	_steam_label = _make_stat_label("Steam, and the change over the last day.\nToday's output can be used from tomorrow.")
+	_steam_label.hide()
 	_population_label = _make_stat_label("Citizens / room in connected homes")
 	_workers_label = _make_stat_label("Workers with a job / all workers (half the population)")
 	_unrest_label = _make_stat_label("")
@@ -86,7 +95,14 @@ func _refresh_city() -> void:
 	_crowns_label.text = "Crowns %d (%+d)" % [_city.crowns, _city.crowns_change]
 	_coal_label.text = "Coal %d (%+d)" % [_city.coal, _city.coal_change]
 	_food_label.text = "Food %d (%+d)" % [_city.food, _city.food_change]
-	_population_label.text = "Pop %d/%d" % [_city.population, _city.housing_capacity]
+	# Each later resource appears in the bar once the city needs it.
+	_water_label.visible = _city.tier >= CitySim.WATER_TIER
+	_water_label.text = "Water %d (%+d)" % [_city.water, _city.water_change]
+	_goods_label.visible = _city.tier >= CitySim.GOODS_TIER
+	_goods_label.text = "Goods %d (%+d)" % [_city.goods, _city.goods_change]
+	_steam_label.visible = _city.tier >= CitySim.STEAM_TIER
+	_steam_label.text = "Steam %d (%+d)" % [_city.steam, _city.steam_change]
+	_population_label.text = "%s  Pop %d/%d" % [_city.tier_name(), _city.population, _city.housing_capacity]
 	_workers_label.text = "Workers %d/%d" % [_city.workers_employed, _city.workers_total]
 	# Debt is the one stockpile that can go below zero; make it obvious.
 	_crowns_label.modulate = DEBT_COLOR if _city.crowns < 0 else Color.WHITE

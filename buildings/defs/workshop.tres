@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="BuildingDef" format=3]
+
+[ext_resource type="Script" path="res://buildings/building_def.gd" id="1_def"]
+
+[resource]
+script = ExtResource("1_def")
+id = &"workshop"
+display_name = "Workshop"
+description = "Turns out the Goods that Townhouse residents expect once Brasswick is a City: clocks, kettles, boots. Hungry for Coal and workers."
+footprint = Vector2i(2, 3)
+style = 15
+category = 3
+tier = 2
+color = Color(0.6, 0.42, 0.28, 1)
+cost = 160
+steam_per_day = 4
+workers = 6
+coal_per_day = 3
+goods_output = 12
+smog_per_day = 3
+can_break = true

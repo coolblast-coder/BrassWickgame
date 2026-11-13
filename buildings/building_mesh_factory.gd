@@ -66,6 +66,12 @@ static func build(def: BuildingDef) -> Node3D:
 			_airship_dock(root, w, d, def.color)
 		BuildingDef.Style.CLOCKTOWER:
 			_clocktower(root, w, d, def.color)
+		BuildingDef.Style.PUMP_STATION:
+			_pump_station(root, w, d, def.color)
+		BuildingDef.Style.WORKSHOP:
+			_workshop(root, w, d, def.color)
+		BuildingDef.Style.POWER_STATION:
+			_power_station(root, w, d, def.color)
 		BuildingDef.Style.ROAD:
 			# Full tile, no margin, so neighbouring road tiles join up.
 			_box(root, Vector3(w + MARGIN * 2.0, ROAD_HEIGHT, d + MARGIN * 2.0),
@@ -365,6 +371,137 @@ static func _clocktower(root: Node3D, w: float, d: float, color: Color) -> void:
 	_cylinder(root, 0.05, 0.9, Vector3(0.0, spire_base + 2.2, 0.0), BRASS, 0.7)
 	for corner: Vector2 in [Vector2(-1, -1), Vector2(1, -1), Vector2(-1, 1), Vector2(1, 1)]:
 		_lamp(root, Vector3(corner.x * (w * 0.5 - 0.3), lawn, corner.y * (d * 0.5 - 0.3)), 1.5)
+
+
+static func _pump_station(root: Node3D, w: float, d: float, color: Color) -> void:
+	# Brick engine house with a rocking beam over a well, a chimney, and a
+	# banded water tank on iron legs with a pipe running down to the ground.
+	var ground := 0.15
+	_box(root, Vector3(w, ground, d), Vector3(0.0, ground * 0.5, 0.0), PAVING)
+	# Engine house at the back left.
+	var house := Vector3(-w * 0.22, ground, -d * 0.2)
+	_box(root, Vector3(1.6, 2.2, 1.8), house + Vector3(0.0, 1.1, 0.0), DARK_BRICK)
+	_prism(root, Vector3(1.8, 0.7, 2.0), house + Vector3(0.0, 2.55, 0.0), SLATE)
+	_box(root, Vector3(0.55, 1.1, 0.08), house + Vector3(-0.3, 0.55, 0.92), WOOD)
+	_window(root, Vector3(0.4, 0.5, 0.08), house + Vector3(0.35, 1.3, 0.92))
+	_cylinder(root, 0.2, 3.6, house + Vector3(-0.5, 1.8, -0.6), DARK_BRICK, 0.0, 0.14)
+	_cylinder(root, 0.17, 0.15, house + Vector3(-0.5, 3.65, -0.6), SOOT)
+	# Rocking beam from the house out over the well at the front left.
+	var well := Vector3(house.x, ground, d * 0.3)
+	_cylinder(root, 0.5, 0.35, well + Vector3(0.0, 0.175, 0.0), STONE)
+	_cylinder(root, 0.38, 0.37, well + Vector3(0.0, 0.185, 0.0), color.darkened(0.3))
+	_box(root, Vector3(0.14, 0.9, 0.14), Vector3(house.x, ground + 2.65, house.z + 0.95), IRON)
+	var beam := _box(root, Vector3(0.14, 0.14, 2.1), Vector3(house.x, ground + 3.1, house.z + 1.2), IRON)
+	beam.rotation.x = -0.12
+	_cylinder(root, 0.04, 2.75, Vector3(well.x, ground + 1.6, well.z), STEEL, 0.6)
+	# Water tank on four legs at the right, with brass bands and a down pipe.
+	var tank := Vector3(w * 0.25, ground, -d * 0.05)
+	for corner: Vector2 in [Vector2(-1, -1), Vector2(1, -1), Vector2(-1, 1), Vector2(1, 1)]:
+		_box(root, Vector3(0.1, 1.7, 0.1), tank + Vector3(corner.x * 0.5, 0.85, corner.y * 0.5), IRON)
+	_cylinder(root, 0.8, 1.5, tank + Vector3(0.0, 2.45, 0.0), color, 0.3)
+	for level: float in [2.0, 2.9]:
+		_torus(root, 0.76, 0.86, tank + Vector3(0.0, level, 0.0), BRASS, 0.7)
+	_cylinder(root, 0.84, 0.3, tank + Vector3(0.0, 3.35, 0.0), SLATE, 0.0, 0.1)
+	_cylinder(root, 0.09, 1.75, tank + Vector3(0.0, 0.875, 0.75), BRASS, 0.7)
+	_cylinder(root, 0.14, 0.12, tank + Vector3(0.0, 0.06, 0.75), BRASS, 0.7)
+
+
+static func _workshop(root: Node3D, w: float, d: float, color: Color) -> void:
+	# Long brick workshop: tall lit windows down both sides, a slate roof
+	# with a ventilator along the ridge, a chimney, a gear over the door, and
+	# a loading bay with an awning and finished goods at the front.
+	var ground := 0.15
+	_box(root, Vector3(w, ground, d), Vector3(0.0, ground * 0.5, 0.0), PAVING)
+	var bw := w - 0.5
+	var bd := d * 0.72
+	var hall_z := -d * 0.5 + 0.2 + bd * 0.5
+	var front := hall_z + bd * 0.5
+	var h := 2.8
+	var top := ground + h
+	_box(root, Vector3(bw, h, bd), Vector3(0.0, ground + h * 0.5, hall_z), color)
+	_box(root, Vector3(bw + 0.12, 0.18, bd + 0.12), Vector3(0.0, top - 0.09, hall_z), STONE)
+	_prism(root, Vector3(bw + 0.25, 1.2, bd + 0.25), Vector3(0.0, top + 0.6, hall_z), SLATE)
+	# Ventilator along the ridge.
+	_box(root, Vector3(0.6, 0.4, bd * 0.6), Vector3(0.0, top + 1.2, hall_z), color.darkened(0.2))
+	_prism(root, Vector3(0.8, 0.3, bd * 0.6 + 0.2), Vector3(0.0, top + 1.55, hall_z), SLATE)
+	# Chimney at the back right.
+	var stack := Vector3(bw * 0.5 - 0.3, 0.0, hall_z - bd * 0.5 + 0.4)
+	_cylinder(root, 0.3, 5.2, stack + Vector3(0.0, 2.6, 0.0), DARK_BRICK, 0.0, 0.2)
+	_cylinder(root, 0.24, 0.2, stack + Vector3(0.0, 5.3, 0.0), BRASS, 0.7)
+	# Tall windows down both sides, small ones at the back.
+	var pane := Vector2(0.55, 1.4)
+	for side: float in [-1.0, 1.0]:
+		_windows_x(root, 4, bd, ground + h * 0.55, side * (bw * 0.5 + 0.02), pane, hall_z)
+	_windows_z(root, 3, bw, ground + h * 0.6, hall_z - bd * 0.5 - 0.02, Vector2(0.5, 0.7))
+	# Double door under a brass gear, flanked by windows.
+	_box(root, Vector3(1.3, 1.9, 0.1), Vector3(0.0, ground + 0.95, front + 0.03), WOOD)
+	_gear(root, Vector3(0.0, ground + 2.35, front + 0.12), 0.3, 8, BRASS)
+	for side: float in [-1.0, 1.0]:
+		_window(root, Vector3(0.5, 0.9, 0.08), Vector3(side * bw * 0.36, ground + 1.4, front + 0.02))
+	# Loading bay: an awning on posts, with crates of goods beneath.
+	var bay_d := d * 0.5 - front - 0.15
+	var bay_z := front + bay_d * 0.5
+	for side: float in [-1.0, 1.0]:
+		_cylinder(root, 0.05, 2.0, Vector3(side * (bw * 0.5 - 0.1), ground + 1.0, front + bay_d - 0.1), IRON)
+	var awning := _box(root, Vector3(bw, 0.08, bay_d + 0.1), Vector3(0.0, ground + 2.1, bay_z), color.lightened(0.25))
+	awning.rotation.x = 0.12
+	var goods: Array[Color] = [Color(0.75, 0.3, 0.25), Color(0.3, 0.45, 0.65), Color(0.85, 0.7, 0.3)]
+	for n in 3:
+		_box(root, Vector3(0.5, 0.45, 0.5), Vector3(-bw * 0.36 + n * 0.55, ground + 0.225, bay_z), WOOD.lightened(0.1))
+		_box(root, Vector3(0.4, 0.12, 0.4), Vector3(-bw * 0.36 + n * 0.55, ground + 0.51, bay_z), goods[n])
+	_box(root, Vector3(0.5, 0.45, 0.5), Vector3(-bw * 0.36 + 0.28, ground + 0.72, bay_z), WOOD)
+	_cylinder(root, 0.22, 0.55, Vector3(bw * 0.38, ground + 0.275, bay_z), WOOD.darkened(0.2))
+
+
+static func _power_station(root: Node3D, w: float, d: float, color: Color) -> void:
+	# Turbine hall across the back with two great chimneys; in the yard in
+	# front, a pair of banded brass steam drums piped into the hall and a
+	# spoked flywheel turning between them.
+	var ground := 0.15
+	_box(root, Vector3(w, ground, d), Vector3(0.0, ground * 0.5, 0.0), PAVING)
+	var bw := w - 0.4
+	var hd := d * 0.48
+	var hall_z := -d * 0.5 + 0.2 + hd * 0.5
+	var front := hall_z + hd * 0.5
+	var h := 3.6
+	var top := ground + h
+	_box(root, Vector3(bw, h, hd), Vector3(0.0, ground + h * 0.5, hall_z), color)
+	_box(root, Vector3(bw + 0.14, 0.22, hd + 0.14), Vector3(0.0, top - 0.11, hall_z), STONE)
+	var roof := _prism(root, Vector3(hd + 0.25, 1.1, bw + 0.25), Vector3(0.0, top + 0.55, hall_z), SLATE)
+	roof.rotation.y = PI * 0.5
+	for side: float in [-1.0, 1.0]:
+		var stack := Vector3(side * bw * 0.32, 0.0, hall_z - hd * 0.2)
+		_cylinder(root, 0.55, 9.0, stack + Vector3(0.0, 4.5, 0.0), DARK_BRICK, 0.0, 0.34)
+		_cylinder(root, 0.42, 0.25, stack + Vector3(0.0, 7.6, 0.0), STONE)
+		_cylinder(root, 0.39, 0.3, stack + Vector3(0.0, 9.1, 0.0), BRASS, 0.7)
+	# Tall windows along the front and back, a furnace door glowing low down.
+	var pane := Vector2(0.6, 1.6)
+	_windows_z(root, 5, bw, ground + h * 0.6, front + 0.02, pane)
+	_windows_z(root, 5, bw, ground + h * 0.6, hall_z - hd * 0.5 - 0.02, pane)
+	for side: float in [-1.0, 1.0]:
+		_windows_x(root, 2, hd, ground + h * 0.6, side * (bw * 0.5 + 0.02), pane, hall_z)
+	_window(root, Vector3(0.9, 0.5, 0.08), Vector3(0.0, ground + 0.45, front + 0.03))
+	# Steam drums.
+	var yard_z := front + (d * 0.5 - front) * 0.5
+	for side: float in [-1.0, 1.0]:
+		var drum := Vector3(side * w * 0.28, ground, yard_z)
+		_capsule(root, 0.8, 3.4, drum + Vector3(0.0, 1.7, 0.0), BRASS, 0.7)
+		for level: float in [0.9, 1.7, 2.5]:
+			_torus(root, 0.77, 0.87, drum + Vector3(0.0, level, 0.0), IRON)
+		_cylinder(root, 0.12, 0.5, drum + Vector3(0.0, 3.6, 0.0), BRASS, 0.7)
+		var pipe := _cylinder(root, 0.12, yard_z - front + 0.2, Vector3(drum.x, ground + 3.0, (yard_z + front) * 0.5), BRASS, 0.7)
+		pipe.rotation.x = PI * 0.5
+	# Flywheel on its stand.
+	var wheel := Vector3(0.0, ground + 1.15, yard_z + 0.2)
+	var rim := _torus(root, 0.8, 0.98, wheel, IRON)
+	rim.rotation.x = PI * 0.5
+	for i in 4:
+		var spoke := _box(root, Vector3(1.65, 0.08, 0.08), wheel, STEEL, 0.6)
+		spoke.rotation.z = PI * i / 4.0
+	var hub := _cylinder(root, 0.16, 0.5, wheel, BRASS, 0.7)
+	hub.rotation.x = PI * 0.5
+	for side: float in [-1.0, 1.0]:
+		_box(root, Vector3(0.3, 1.15, 0.12), Vector3(0.0, ground + 0.575, wheel.z + side * 0.25), IRON)
 
 
 static func _glasshouse(root: Node3D, w: float, d: float, color: Color) -> void:

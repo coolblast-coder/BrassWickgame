@@ -10,6 +10,7 @@ description = "Calms nearby homes while open. It opens only when staffed and the
 footprint = Vector2i(2, 2)
 style = 10
 category = 4
+tier = 1
 color = Color(0.55, 0.27, 0.2, 1)
 cost = 90
 workers = 3

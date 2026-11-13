@@ -12,9 +12,34 @@ const CITIZENS_PER_TAX_CROWN := 2
 ## The design doc starts this at 2. Lowered after balance modelling: at 2, a
 ## village without a Brassworks earns about +2 Crowns a day and any extra
 ## building tips it into permanent debt.
-const UPKEEP_PER_BUILDING := 1
+## It then rises with the city's tier, so a big city costs more to run:
+## one entry per tier of CityState.TIER_NAMES. Balance modelling showed that
+## a rise at every tier (1, 2, 3, 4) bankrupts a city the day it becomes a
+## Metropolis.
+const UPKEEP_BY_TIER: Array[int] = [1, 1, 2, 2]
 ## Food eaten per citizen per day.
 const FOOD_PER_CITIZEN := 1
+## Citizens need Water once the city reaches this tier (Town)...
+const WATER_TIER := 1
+## ...one Water a day for every this many citizens...
+const CITIZENS_PER_WATER := 5
+## ...and the city is given this much on the day the need begins, to tide it
+## over until the first Pump Station is running.
+const WATER_GRANT := 100
+## Residents of homes that want Goods (Townhouses) expect them once the city
+## reaches this tier (City)...
+const GOODS_TIER := 2
+## ...one a day for every this many of those residents...
+const CITIZENS_PER_GOODS := 10
+## ...and the city is given this many on the day the need begins.
+const GOODS_GRANT := 40
+## Buildings with a Steam need only run on Steam once the city reaches this
+## tier (Metropolis)...
+const STEAM_TIER := 3
+## ...and the city is given this much on the day the need begins. Steam made
+## today can only be used from tomorrow, so the stock is what keeps things
+## turning.
+const STEAM_GRANT := 60
 ## Food output multiplier for a building standing in smog.
 const SMOGGY_FOOD_FACTOR := 0.5
 
@@ -43,6 +68,8 @@ const LEAVE_SHARE_PER_DAY := 0.05
 # Daily Unrest changes. The "share" ones scale with how much of the city is
 # affected, from nothing up to the value given.
 const UNREST_HUNGER := 20.0        # by share of citizens who went hungry
+const UNREST_THIRST := 12.0        # by share of citizens who went without Water
+const UNREST_NO_GOODS := 8.0       # by share of citizens who went without Goods
 const UNREST_COLD := 10.0          # by share of homes unheated
 const UNREST_SMOG := 8.0           # by share of homes in smog
 const UNREST_IDLE := 5.0           # by share of workers without a job
@@ -52,6 +79,11 @@ const UNREST_DEBT := 5.0           # flat, while Crowns are below zero
 const UNREST_BASELINE_CALM := 3.0  # flat, every day
 const UNREST_TEA_GARDEN := 4.0     # by share of homes near a Tea Garden
 const UNREST_TAVERN := 3.0         # by share of homes near an open Tavern
+
+## Steam still unclaimed today; only meaningful while _run_economy() runs.
+var _steam_pool: int = 0
+## Buildings that went without Steam today.
+var _unpowered: int = 0
 
 ## Multiplier on all Coal dug. CityEvents lowers it during a Coal Strike.
 var coal_output_factor: float = 1.0
@@ -65,12 +97,40 @@ func _init(grid: CityGrid, city: CityState, smog: SmogMap) -> void:
 	_grid = grid
 	_city = city
 	_smog = smog
+	_city.tier_reached.connect(_on_tier_reached)
+
+
+## A new tier brings a new need; the city gets a small stock to start with.
+func _on_tier_reached(tier: int) -> void:
+	if tier == WATER_TIER:
+		_city.water += WATER_GRANT
+	if tier == GOODS_TIER:
+		_city.goods += GOODS_GRANT
+	if tier == STEAM_TIER:
+		_city.steam += STEAM_GRANT
+
+
+## Claim today's Steam for a building that needs it. True if it got its
+## Steam or needs none; false, and marked unpowered, if the stock ran out.
+func _take_steam(building: Building) -> bool:
+	var need := building.def.steam_per_day
+	if need <= 0 or _city.tier < STEAM_TIER:
+		return true
+	if _steam_pool >= need:
+		_steam_pool -= need
+		return true
+	building.powered = false
+	_unpowered += 1
+	return false
 
 
 func run_day() -> void:
 	var crowns_before := _city.crowns
 	var coal_before := _city.coal
 	var food_before := _city.food
+	var water_before := _city.water
+	var goods_before := _city.goods
+	var steam_before := _city.steam
 	_update_population()
 	_assign_workers()
 	_run_economy()
@@ -85,6 +145,9 @@ func run_day() -> void:
 	_city.crowns_change = _city.crowns - crowns_before
 	_city.coal_change = _city.coal - coal_before
 	_city.food_change = _city.food - food_before
+	_city.water_change = _city.water - water_before
+	_city.goods_change = _city.goods - goods_before
+	_city.steam_change = _city.steam - steam_before
 	_city.changed.emit()
 
 
@@ -108,6 +171,7 @@ func _update_population() -> void:
 		population = mini(capacity, population + homes.size() * MOVE_IN_PER_HOME)
 	_city.population = population
 	_city.peak_population = maxi(_city.peak_population, population)
+	_city.update_tier()
 	_house_citizens(homes, population, capacity)
 
 
@@ -163,17 +227,23 @@ func _run_economy() -> void:
 	var machines: Array[Building] = []
 	var eateries: Array[Building] = []
 	var traders: Array[Building] = []
+	_steam_pool = _city.steam
+	_unpowered = 0
 
 	for building in _grid.all_buildings:
 		var def := building.def
 		if def.is_road or building == _grid.town_hall:
 			continue
-		upkeep += UPKEEP_PER_BUILDING
+		upkeep += UPKEEP_BY_TIER[_city.tier]
 		building.fuelled = true
 		building.ran_today = false
 		building.food_made = 0
 		building.coal_made = 0
 		building.crowns_made = 0
+		building.water_made = 0
+		building.goods_made = 0
+		building.steam_made = 0
+		building.powered = true
 		if building.broken:
 			# Produces nothing and burns no Coal until repaired.
 			broken += 1
@@ -187,7 +257,10 @@ func _run_economy() -> void:
 			# Served after the citizens have eaten, further down.
 			eateries.append(building)
 		elif def.coal_per_day <= 0:
-			# Needs no Coal (Coal Pit, Tea Garden): always runs.
+			# Needs no Coal (Coal Pit, Tea Garden): runs, given any Steam it
+			# needs (Clocktower).
+			if not _take_steam(building):
+				continue
 			_produce(building)
 			coal_pool += building.coal_made
 			food_made += building.food_made
@@ -208,17 +281,19 @@ func _run_economy() -> void:
 
 	var stopped_machines := 0
 	for machine in machines:
-		if coal_pool >= machine.def.coal_per_day:
+		if coal_pool < machine.def.coal_per_day:
+			machine.fuelled = false
+			stopped_machines += 1
+		elif _take_steam(machine):
 			coal_pool -= machine.def.coal_per_day
 			_produce(machine)
 			food_made += machine.food_made
 			crowns_made += machine.crowns_made
-		else:
-			machine.fuelled = false
-			stopped_machines += 1
 
 	# Airship Docks sell Coal the city can spare, once everything is fuelled.
 	for dock in traders:
+		if not _take_steam(dock):
+			continue
 		var staffing := _staffing(dock)
 		dock.ran_today = staffing > 0.0
 		var spare := coal_pool - TRADE_COAL_RESERVE
@@ -245,6 +320,40 @@ func _run_economy() -> void:
 		else:
 			eatery.fuelled = false
 
+	# Water: everything pumped today joins the stock, then the citizens drink.
+	var water_available := _city.water
+	for building in _grid.all_buildings:
+		water_available += building.water_made
+	var water_needed := 0
+	if _city.tier >= WATER_TIER:
+		water_needed = ceili(float(_city.population) / CITIZENS_PER_WATER)
+	_city.water = maxi(0, water_available - water_needed)
+	_city.thirsty_citizens = mini(_city.population,
+			maxi(0, water_needed - water_available) * CITIZENS_PER_WATER)
+
+	# Goods: today's output joins the stock, then residents of the homes that
+	# want them take their share.
+	var goods_available := _city.goods
+	var goods_buyers := 0
+	for building in _grid.all_buildings:
+		goods_available += building.goods_made
+		if building.def.wants_goods:
+			goods_buyers += building.residents
+	var goods_needed := 0
+	if _city.tier >= GOODS_TIER:
+		goods_needed = ceili(float(goods_buyers) / CITIZENS_PER_GOODS)
+	_city.goods = maxi(0, goods_available - goods_needed)
+	_city.citizens_without_goods = mini(goods_buyers,
+			maxi(0, goods_needed - goods_available) * CITIZENS_PER_GOODS)
+
+	# Steam: what was not used today stays in stock, and today's output joins
+	# it for tomorrow.
+	var steam_made := 0
+	for building in _grid.all_buildings:
+		steam_made += building.steam_made
+	_city.steam = _steam_pool + steam_made
+	_city.unpowered_buildings = _unpowered
+
 	# Crowns may go into debt; Food and Coal stop at zero.
 	_city.crowns += crowns_made + tax - upkeep
 	_city.food = food_left
@@ -266,6 +375,9 @@ func _produce(building: Building) -> void:
 	building.food_made = roundi(def.food_output * staffing * growth)
 	building.coal_made = roundi(def.coal_output * staffing * coal_output_factor)
 	building.crowns_made = roundi(def.crowns_output * staffing)
+	building.water_made = roundi(def.water_output * staffing)
+	building.goods_made = roundi(def.goods_output * staffing)
+	building.steam_made = roundi(def.steam_output * staffing)
 
 
 ## How fully staffed a building is, from 0 to 1. Buildings that need no
@@ -315,6 +427,9 @@ func _update_unrest() -> void:
 	var causes := PackedStringArray()
 	var change := 0.0
 	change += _cause(causes, "Hunger", UNREST_HUNGER * _share(_city.hungry_citizens, _city.population))
+	change += _cause(causes, "Thirst", UNREST_THIRST * _share(_city.thirsty_citizens, _city.population))
+	change += _cause(causes, "No Goods",
+			UNREST_NO_GOODS * _share(_city.citizens_without_goods, _city.population))
 	change += _cause(causes, "Cold homes", UNREST_COLD * _share(_city.cold_homes, homes))
 	change += _cause(causes, "Smoggy homes", UNREST_SMOG * _share(smoggy_homes, homes))
 	change += _cause(causes, "Idle workers", UNREST_IDLE * _share(idle_workers, _city.workers_total))
@@ -326,7 +441,7 @@ func _update_unrest() -> void:
 	change += _cause(causes, "Taverns", -UNREST_TAVERN * _share(tavern_homes, homes))
 	var landmark_calm := 0.0
 	for building in _grid.all_buildings:
-		if building.def.citywide_calm > 0.0 and building.road_access:
+		if building.def.citywide_calm > 0.0 and building.ran_today:
 			landmark_calm += building.def.citywide_calm
 	change += _cause(causes, "Clocktower", -landmark_calm)
 	change += _cause(causes, "Baseline calm", -UNREST_BASELINE_CALM)

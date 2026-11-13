@@ -55,6 +55,7 @@ func _ready() -> void:
 	_build_controller.feedback.connect(_on_build_feedback)
 	_hud.build_bar.clicked.connect(func() -> void: _sound.play(&"click", -8.0))
 	_events.event_fired.connect(_on_event_sounded)
+	city.tier_reached.connect(func(_tier: int) -> void: _on_event_sounded("", ""))
 	grid.buildings_changed.connect(func() -> void: _road_access_dirty = true)
 	_place_town_hall()
 	_vegetation.setup(grid, _hills)
@@ -81,8 +82,9 @@ func _on_overlay_mode_changed(_mode: OverlayView.Mode) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	# Development aid: F1 to F4 fire each event at once, to test them without
-	# waiting for the dice. Not in exported builds.
+	# Development aids: F1 to F4 fire each event at once, to test them without
+	# waiting for the dice, and F6 unlocks the next city tier. Not in exported
+	# builds.
 	if not OS.is_debug_build() or _game_over:
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
@@ -95,6 +97,11 @@ func _unhandled_input(event: InputEvent) -> void:
 				_events.fire(CityEvents.Type.SMOG_STORM, _clock.day)
 			KEY_F4:
 				_events.fire(CityEvents.Type.AIRSHIP_TRADER, _clock.day)
+			KEY_F6:
+				# Jump to the next city tier without growing into it.
+				if city.tier + 1 < CityState.TIER_POPULATION.size():
+					city.peak_population = CityState.TIER_POPULATION[city.tier + 1]
+					city.update_tier()
 
 
 func _on_day_ended(day: int) -> void:

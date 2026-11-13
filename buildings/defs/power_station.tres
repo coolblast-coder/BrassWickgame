@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="BuildingDef" format=3]
+
+[ext_resource type="Script" path="res://buildings/building_def.gd" id="1_def"]
+
+[resource]
+script = ExtResource("1_def")
+id = &"power_station"
+display_name = "Power Station"
+description = "Raises the Steam that a Metropolis runs on. Workshops, Smog Scrubbers, Airship Docks and the Clocktower all stop without it. Burns Coal by the cartload and smokes heavily."
+footprint = Vector2i(3, 3)
+style = 16
+category = 3
+tier = 3
+color = Color(0.45, 0.25, 0.2, 1)
+cost = 300
+workers = 6
+coal_per_day = 8
+steam_output = 20
+smog_per_day = 8
+can_break = true

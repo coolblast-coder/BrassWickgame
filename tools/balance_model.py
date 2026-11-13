@@ -1,8 +1,8 @@
 """Non-spatial model of Brasswick's daily tick, for balance checks.
 
 Mirrors sim/city_sim.gd and sim/city_events.gd in rule order and constants.
-The numbers in P and DEFS below are copies: when a constant changes in the
-game, change it here too, or the model drifts.
+The numbers in P and the tables below are copies: when a constant changes in
+the game, change it here too, or the model drifts.
 
 Not modelled: map layout and smog. Assumes every building has road access
 and that the player keeps homes out of smog (so smog adds no Unrest and
@@ -12,13 +12,9 @@ Tenements first, then Townhouses, rather than in placement order.
 
 A scripted player builds once per day. Three kinds are compared:
   naive   pays for every repair; spends freely from day one
-  lazy    saves for a first Brassworks; pays for repairs only until the city
+  lazy    saves for a first Market; pays for repairs only until the city
           has a Mechanic's Yard, then relies on Yards
-  active  saves for a first Brassworks; pays for every repair
-In practice naive and active usually come out the same: the saving rule
-rarely changes what gets built.
-Each can play "classic" (the seven original buildings only) or "modern"
-(also Townhouse, Market, Tavern, Airship Dock and Clocktower).
+  active  saves for a first Market; pays for every repair
 The scripted player is competent, not clever. Read the results as "which
 levers matter", not as predicted scores.
 
@@ -26,7 +22,7 @@ Usage (not part of the Godot project; needs only Python 3):
   python tools/balance_model.py              compare variants, 300 games each
                                              (takes several minutes)
   python tools/balance_model.py base 50      same, 50 games each
-  python tools/balance_model.py trace 200    print one lazy modern game
+  python tools/balance_model.py trace 200    print one lazy game day by day
   python tools/balance_model.py trace 200 a  the same for an active player
 To try a change, add a report(...) line under "base" with the overrides.
 """
@@ -38,21 +34,26 @@ from collections import Counter
 
 P = dict(
     start_crowns=600, start_coal=50, start_food=50,
-    move_in=2, upkeep=1, repair_cost=20,
+    move_in=2, upkeep_by_tier=(1, 1, 2, 2), repair_cost=20,
     brk_base=0.01, brk_per=0.001, brk_max=0.10,
-    u_hunger=20.0, u_cold=10.0, u_idle=5.0, u_broken=2.0, u_broken_max=10.0,
-    u_debt=5.0, u_calm=3.0, u_tea=4.0, u_tavern=3.0, u_clock=2.0,
+    u_hunger=20.0, u_thirst=12.0, u_goods=8.0, u_cold=10.0, u_idle=5.0,
+    u_broken=2.0, u_broken_max=10.0, u_debt=5.0,
+    u_calm=3.0, u_tea=4.0, u_tavern=3.0, u_clock=2.0,
     move_in_below=50.0, leave_above=75.0, leave_share=0.05, walkout_days=3,
     quiet_days=10, min_gap=5, strike_days=5, strike_factor=0.5,
     trader_crowns=100, trader_food=40,
     tavern_food=5, trade_coal=10, trade_crowns=15, trade_reserve=100,
+    tier_population=(0, 100, 400, 1000),
+    water_tier=1, citizens_per_water=5, water_grant=100,
+    goods_tier=2, citizens_per_goods=10, goods_grant=40,
+    steam_tier=3, steam_grant=60,
     homes_per_tea=4,      # homes one Tea Garden can cover (layout guess)
     homes_per_tavern=6,   # homes one Tavern can cover (layout guess)
     machines_per_yard=10, # machines one Mechanic's Yard can cover (layout guess)
     road_cost=6,          # road tiles bought with each building, in Crowns
     map_tiles=2000,       # buildable tiles: about half of the 64 x 64 map
     # Rule variants, both off in the game:
-    staff_priority=False,   # True: workers go to food, coal, yard, brass in that order
+    staff_priority=False,   # True: workers go to essentials first
     fuel_food_first=False,  # True: Glasshouses get Coal before other machines
 )
 DEFS = {  # cost, workers, coal burned, food, coal dug, crowns
@@ -63,21 +64,35 @@ DEFS = {  # cost, workers, coal burned, food, coal dug, crowns
     "market": (110, 4, 0, 0, 0, 12),
     "tavern": (90, 3, 0, 0, 0, 0),
     "dock": (200, 4, 0, 0, 0, 0),
+    "pump": (120, 3, 1, 0, 0, 0),
+    "workshop": (160, 6, 3, 0, 0, 0),
+    "station": (300, 6, 8, 0, 0, 0),
 }
+WATER_OUT = {"pump": 30}
+GOODS_OUT = {"workshop": 12}
+STEAM_OUT = {"station": 20}
+STEAM_USE = {"workshop": 4, "dock": 3}
+CLOCK_STEAM = 2
 # Buildings that are not workplaces: cost, housing, coal burned.
 PLAIN = {"tenement": (50, 10, 1), "townhouse": (140, 20, 2), "tea": (60, 0, 0),
          "clocktower": (500, 0, 0)}
 TILES = {"tenement": 4, "townhouse": 4, "tea": 4, "clocktower": 4, "glasshouse": 6, "pit": 9,
-         "brassworks": 12, "yard": 4, "market": 6, "tavern": 4, "dock": 9}
-BREAKS = {"glasshouse", "pit", "brassworks", "yard"}
-PRIORITY = {"glasshouse": 0, "pit": 1, "yard": 2, "brassworks": 3, "market": 4, "tavern": 5, "dock": 6}
+         "brassworks": 12, "yard": 4, "market": 6, "tavern": 4, "dock": 9, "pump": 4,
+         "workshop": 6, "station": 9}
+TIER = {"brassworks": 1, "yard": 1, "tavern": 1, "townhouse": 1, "pump": 1,
+        "dock": 2, "workshop": 2, "clocktower": 3, "station": 3}
+ESSENTIAL = {"glasshouse", "pit", "pump", "workshop", "station"}
+BREAKS = {"glasshouse", "pit", "brassworks", "yard", "pump", "workshop", "station"}
+PRIORITY = {"glasshouse": 0, "pit": 1, "pump": 2, "yard": 3, "station": 4, "workshop": 5,
+            "brassworks": 6, "market": 7, "tavern": 8, "dock": 9}
 
 
 class City:
-    def __init__(self, p, rng, active_repairs, savvy=True, modern=False):
-        self.p, self.rng, self.active, self.savvy, self.modern = p, rng, active_repairs, savvy, modern
+    def __init__(self, p, rng, active_repairs, savvy=True):
+        self.p, self.rng, self.active, self.savvy = p, rng, active_repairs, savvy
         self.crowns, self.coal, self.food = p["start_crowns"], p["start_coal"], p["start_food"]
-        self.pop = self.peak = 0
+        self.water = self.goods = self.steam = 0
+        self.pop = self.peak = self.tier = 0
         self.unrest = 0.0
         self.tenements = self.townhouses = self.teas = 0
         self.clock = False
@@ -88,7 +103,7 @@ class City:
         self.last_event = -p["min_gap"]
         self.day = 0
         self.causes = Counter()
-        self.food_made = self.coal_net = self.idle = 0
+        self.idle = 0
 
     def count(self, kind):
         return sum(1 for w in self.work if w["kind"] == kind)
@@ -101,12 +116,25 @@ class City:
     def capacity(self):
         return self.tenements * PLAIN["tenement"][1] + self.townhouses * PLAIN["townhouse"][1]
 
+    @property
+    def townhouse_residents(self):
+        cap = self.capacity
+        return self.pop * self.townhouses * PLAIN["townhouse"][1] // cap if cap else 0
+
+    def upkeep_each(self):
+        return self.p["upkeep_by_tier"][self.tier]
+
+    def unlocked(self, kind):
+        return TIER.get(kind, 0) <= self.tier
+
     def buy(self, kind):
+        if not self.unlocked(kind):
+            return False
         cost = (PLAIN[kind][0] if kind in PLAIN else DEFS[kind][0]) + self.p["road_cost"]
         if self.crowns < cost or self.tiles + TILES[kind] > self.p["map_tiles"]:
             return False
-        if self.savvy and kind != "brassworks" and self.count("brassworks") == 0 \
-                and self.crowns - cost < 156 + 30:
+        if self.savvy and kind != "market" and self.count("market") == 0 \
+                and self.crowns - cost < 116 + 30:
             return False
         self.tiles += TILES[kind]
         self.crowns -= cost
@@ -133,6 +161,14 @@ class City:
             pop = min(cap, pop + self.homes * p["move_in"])
         self.pop = pop
         self.peak = max(self.peak, pop)
+        while self.tier + 1 < len(p["tier_population"]) and self.peak >= p["tier_population"][self.tier + 1]:
+            self.tier += 1
+            if self.tier == p["water_tier"]:
+                self.water += p["water_grant"]
+            if self.tier == p["goods_tier"]:
+                self.goods += p["goods_grant"]
+            if self.tier == p["steam_tier"]:
+                self.steam += p["steam_grant"]
 
         total = pop // 2
         avail = total
@@ -147,7 +183,20 @@ class City:
         self.idle = avail
 
         pool = self.coal
-        food_made = crowns_made = broken = stopped = 0
+        steam_pool = self.steam
+        needs_steam = self.tier >= p["steam_tier"]
+        food_made = crowns_made = water_made = goods_made = steam_made = broken = 0
+
+        def powered(kind):
+            nonlocal steam_pool
+            need = STEAM_USE.get(kind, 0)
+            if not needs_steam or need == 0:
+                return True
+            if steam_pool >= need:
+                steam_pool -= need
+                return True
+            return False
+
         machines, taverns, docks = [], [], []
         for w in self.work:
             w["ran"] = False
@@ -167,6 +216,12 @@ class City:
                 crowns_made += round(cr * share)
             else:
                 machines.append(w)
+        clock_runs = self.clock
+        if self.clock and needs_steam:
+            if steam_pool >= CLOCK_STEAM:
+                steam_pool -= CLOCK_STEAM
+            else:
+                clock_runs = False
         if p["fuel_food_first"]:
             machines.sort(key=lambda w: PRIORITY[w["kind"]])
         warm_tenements = min(self.tenements, pool)
@@ -175,16 +230,20 @@ class City:
         pool -= warm_townhouses * PLAIN["townhouse"][2]
         cold = self.homes - warm_tenements - warm_townhouses
         for w in machines:
-            _, need, burn, f, c, cr = DEFS[w["kind"]]
-            if pool >= burn:
+            kind = w["kind"]
+            _, need, burn, f, c, cr = DEFS[kind]
+            if pool >= burn and powered(kind):
                 pool -= burn
                 share = w["staff"] / need
                 w["ran"] = share > 0
                 food_made += round(f * share)
                 crowns_made += round(cr * share)
-            else:
-                stopped += 1
+                water_made += round(WATER_OUT.get(kind, 0) * share)
+                goods_made += round(GOODS_OUT.get(kind, 0) * share)
+                steam_made += round(STEAM_OUT.get(kind, 0) * share)
         for w in docks:
+            if not powered("dock"):
+                continue
             share = w["staff"] / DEFS["dock"][1]
             w["ran"] = share > 0
             sold = min(round(p["trade_coal"] * share), pool - p["trade_reserve"])
@@ -200,17 +259,31 @@ class City:
                 food_left -= p["tavern_food"]
                 w["ran"] = True
                 open_taverns += 1
-        upkeep = p["upkeep"] * (self.homes + self.teas + len(self.work) + int(self.clock))
+
+        water_have = self.water + water_made
+        water_need = math.ceil(pop / p["citizens_per_water"]) if self.tier >= p["water_tier"] else 0
+        thirsty = min(pop, max(0, water_need - water_have) * p["citizens_per_water"])
+        self.water = max(0, water_have - water_need)
+
+        buyers = self.townhouse_residents
+        goods_have = self.goods + goods_made
+        goods_need = math.ceil(buyers / p["citizens_per_goods"]) if self.tier >= p["goods_tier"] else 0
+        without_goods = min(buyers, max(0, goods_need - goods_have) * p["citizens_per_goods"])
+        self.goods = max(0, goods_have - goods_need)
+
+        self.steam = steam_pool + steam_made
+
+        upkeep = self.upkeep_each() * (self.homes + self.teas + len(self.work) + int(self.clock))
         self.crowns += crowns_made + pop // 2 - upkeep
         self.food = food_left
-        self.coal_net = pool - self.coal
         self.coal = pool
-        self.food_made = food_made
 
         def share_of(a, b):
             return min(1.0, a / b) if b > 0 else 0.0
         parts = dict(
             hunger=p["u_hunger"] * share_of(hungry, pop),
+            thirst=p["u_thirst"] * share_of(thirsty, pop),
+            goods=p["u_goods"] * share_of(without_goods, pop),
             cold=p["u_cold"] * share_of(cold, self.homes),
             idle=p["u_idle"] * share_of(avail, total),
             broken=min(p["u_broken_max"], p["u_broken"] * broken),
@@ -219,7 +292,7 @@ class City:
         relief = p["u_calm"] \
             + p["u_tea"] * share_of(self.teas * p["homes_per_tea"], self.homes) \
             + p["u_tavern"] * share_of(open_taverns * p["homes_per_tavern"], self.homes) \
-            + (p["u_clock"] if self.clock else 0.0)
+            + (p["u_clock"] if clock_runs else 0.0)
         change = sum(parts.values()) - relief
         for k, v in parts.items():
             self.causes[k] += v
@@ -277,44 +350,66 @@ class City:
                 if w["broken"] and self.crowns >= p["repair_cost"] + 40:
                     self.crowns -= p["repair_cost"]
                     w["broken"] = False
+        hired = 0  # jobs created today, not yet reflected in self.idle
         for _ in range(6):
+            idle = self.idle - hired
+            before = len(self.work)
             growth = self.homes * p["move_in"] if self.pop < self.capacity else 0
-            g, pit, bw, yard, market, tavern, dock = (self.count(k) for k in (
-                "glasshouse", "pit", "brassworks", "yard", "market", "tavern", "dock"))
-            machines = g + pit + bw + yard
-            coal_need = self.tenements + 2 * self.townhouses + g + 4 * bw + yard
+            g, pit, bw, yard, market, tavern, dock, pump, shop, station = (self.count(k) for k in (
+                "glasshouse", "pit", "brassworks", "yard", "market", "tavern", "dock",
+                "pump", "workshop", "station"))
+            machines = sum(1 for w in self.work if w["kind"] in BREAKS)
+            coal_need = self.tenements + 2 * self.townhouses + g + 4 * bw + yard + pump + 3 * shop + 8 * station
             food_need = self.pop + growth + p["tavern_food"] * tavern
+            water_need = (self.pop + growth) / p["citizens_per_water"] if self.tier >= p["water_tier"] else 0
+            goods_need = self.townhouses * 2 if self.tier >= p["goods_tier"] else 0
+            steam_need = 4 * shop + 3 * dock + (CLOCK_STEAM if self.clock else 0) \
+                if self.tier >= p["steam_tier"] else 0
+            # Workers fill buildings in the order they were placed, so a new
+            # essential building can stand empty in a fully employed city.
+            short_staffed = any(not w["broken"] and w["staff"] < DEFS[w["kind"]][1]
+                                and w["kind"] in ESSENTIAL for w in self.work)
             if self.homes == 0:
+                ok = self.buy("tenement")
+            elif short_staffed and idle <= 0 and self.pop >= 0.8 * self.capacity and self.unrest < 50:
                 ok = self.buy("tenement")
             elif g * 20 < food_need and self.food < 3 * max(self.pop, 10):
                 ok = self.buy("glasshouse")
             elif pit * 12 < 1.3 * coal_need + 2 and self.coal < 8 * coal_need + 30:
                 ok = self.buy("pit")
-            elif self.idle >= 6 and (pit * 12 >= 1.3 * (coal_need + 4) or self.coal > 40 and bw == 0):
+            elif pump * 30 < water_need and self.water < 6 * water_need:
+                ok = self.buy("pump")
+            elif station * 20 < steam_need and self.steam < 4 * steam_need:
+                ok = self.buy("station")
+            elif shop * 12 < goods_need and self.goods < 6 * goods_need:
+                ok = self.buy("workshop")
+            elif self.tier >= 1 and idle >= 6 and pit * 12 >= 1.3 * (coal_need + 4):
                 ok = self.buy("brassworks")
-            elif self.modern and self.idle >= 4 and bw > 0:
+            elif idle >= 4:
                 ok = self.buy("market")
-            elif machines >= 3 and yard * p["machines_per_yard"] < machines:
+            elif self.unlocked("yard") and machines >= 3 and yard * p["machines_per_yard"] < machines:
                 ok = self.buy("yard")
             elif self.teas * p["homes_per_tea"] < self.homes and (self.unrest > 15 or (self.crowns > 400 and self.homes >= 6)):
                 ok = self.buy("tea")
-            elif self.modern and self.unrest > 15 and self.idle >= 3 \
+            elif self.unlocked("tavern") and self.unrest > 15 and idle >= 3 \
                     and self.food > 2 * self.pop + 20 and tavern * p["homes_per_tavern"] < self.homes:
                 ok = self.buy("tavern")
-            elif self.modern and self.idle >= 4 and self.coal > p["trade_reserve"] + 60 and dock < 1 + pit // 3:
+            elif self.unlocked("dock") and idle >= 4 and self.coal > p["trade_reserve"] + 60 and dock < 1 + pit // 3:
                 ok = self.buy("dock")
-            elif self.modern and not self.clock and self.crowns > 800 and self.homes >= 10:
+            elif self.unlocked("clocktower") and not self.clock and self.crowns > 800 and self.homes >= 10:
                 ok = self.buy("clocktower")
             elif self.pop >= 0.8 * self.capacity and self.unrest < 40 and self.crowns >= 110:
-                ok = self.buy("townhouse" if self.modern and self.crowns >= 300 else "tenement")
+                ok = self.buy("townhouse" if self.tier >= 1 and self.crowns >= 300 else "tenement")
             else:
                 ok = False
             if not ok:
                 break
+            if len(self.work) > before:
+                hired += DEFS[self.work[-1]["kind"]][1]
 
 
-def play(p, seed, active, days, savvy=True, modern=False):
-    city = City(p, random.Random(seed), active, savvy, modern)
+def play(p, seed, active, days, savvy=True):
+    city = City(p, random.Random(seed), active, savvy)
     city.player()
     while city.day < days:
         if not city.run_day():
@@ -323,47 +418,51 @@ def play(p, seed, active, days, savvy=True, modern=False):
     return city, True
 
 
-def report(label, overrides=None, games=300, days=1000, modern=False):
+def report(label, overrides=None, games=300, days=1000):
     p = dict(P, **(overrides or {}))
     for name, active, savvy in (("naive", True, False), ("lazy", False, True), ("active", True, True)):
-        results = [play(p, s, active, days, savvy, modern) for s in range(games)]
+        results = [play(p, s, active, days, savvy) for s in range(games)]
         lost = [c for c, alive in results if not alive]
         peaks = [c.peak for c, _ in results]
         final = [c.pop for c, alive in results if alive]
         crowns = [c.crowns for c, alive in results if alive]
+        tiers = Counter(c.tier for c, _ in results)
         causes = Counter()
         for c, _ in results:
             causes.update(c.causes)
         top = ", ".join("%s %.0f%%" % (k, 100 * v / max(1, sum(causes.values()))) for k, v in causes.most_common(3))
-        print("%-30s %-7s lost %3d%%  median loss day %4s  peak pop median %4d (p10 %4d, p90 %4d)  final pop %4s  final crowns %6s | %s" % (
+        print("%-24s %-7s lost %3d%%  loss day %4s  peak pop %4d (p10 %4d, p90 %4d)  final pop %4s  crowns %7s  tiers %s | %s" % (
             label, name,
             round(100 * len(lost) / games),
             int(statistics.median(c.day for c in lost)) if lost else "-",
             statistics.median(peaks), sorted(peaks)[games // 10], sorted(peaks)[9 * games // 10],
             int(statistics.median(final)) if final else "-",
-            int(statistics.median(crowns)) if crowns else "-", top))
+            int(statistics.median(crowns)) if crowns else "-",
+            "/".join(str(tiers.get(t, 0)) for t in range(4)), top))
 
 
 if __name__ == "__main__":
     which = sys.argv[1] if len(sys.argv) > 1 else "base"
     if which == "base":
         games = int(sys.argv[2]) if len(sys.argv) > 2 else 300
-        report("classic buildings", games=games)
-        report("modern buildings", games=games, modern=True)
-        report("classic, upkeep 2 (design doc)", dict(upkeep=2), games=games)
-        report("modern, upkeep 2", dict(upkeep=2), games=games, modern=True)
+        report("current values", games=games)
+        report("upkeep 1 at every tier", dict(upkeep_by_tier=(1, 1, 1, 1)), games=games)
+        report("upkeep 1, 2, 2, 3", dict(upkeep_by_tier=(1, 2, 2, 3)), games=games)
+        report("upkeep 1, 2, 3, 4", dict(upkeep_by_tier=(1, 2, 3, 4)), games=games)
     elif which == "trace":
-        city = City(dict(P), random.Random(1), len(sys.argv) > 3, modern=True)
+        city = City(dict(P), random.Random(1), len(sys.argv) > 3)
         city.player()
         for _ in range(int(sys.argv[2]) if len(sys.argv) > 2 else 60):
             alive = city.run_day()
             city.player()
             if city.day <= 30 or city.day % 20 == 0 or not alive:
-                print("day %3d pop %4d/%4d crowns %5d coal %4d food %4d unrest %5.1f idle %3d  T%d H%d G%d P%d B%d Y%d M%d V%d D%d tea%d clock%d broken %d" % (
-                    city.day, city.pop, city.capacity, city.crowns, city.coal, city.food, city.unrest, city.idle,
+                print("day %3d tier %d pop %4d/%4d crowns %6d coal %4d food %4d water %4d goods %4d steam %4d unrest %5.1f idle %3d  T%d H%d G%d P%d B%d Y%d M%d V%d D%d Pu%d W%d S%d tea%d clock%d broken %d" % (
+                    city.day, city.tier, city.pop, city.capacity, city.crowns, city.coal, city.food,
+                    city.water, city.goods, city.steam, city.unrest, city.idle,
                     city.tenements, city.townhouses, city.count("glasshouse"), city.count("pit"),
                     city.count("brassworks"), city.count("yard"), city.count("market"), city.count("tavern"),
-                    city.count("dock"), city.teas, int(city.clock), sum(w["broken"] for w in city.work)))
+                    city.count("dock"), city.count("pump"), city.count("workshop"), city.count("station"),
+                    city.teas, int(city.clock), sum(w["broken"] for w in city.work)))
             if not alive:
                 print("WALKOUT")
                 break

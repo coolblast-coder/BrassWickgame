@@ -111,7 +111,7 @@ func legend() -> String:
 			return "Smog overlay\nDarker brown: more smog"
 		Mode.UNREST:
 			return "Unrest overlay\nRed: no road access\nYellow: broken down\n" \
-					+ "Orange: no Coal (Tavern: no Food)\nBlue: cold home\n" \
+					+ "Orange: no Coal, Steam or (Tavern) Food\nBlue: cold home\n" \
 					+ "Purple: smoggy home\nGreen: calmed by a Tea Garden or Tavern"
 		_:
 			return ""
@@ -164,6 +164,8 @@ func _trouble_color(building: Building) -> Color:
 		return NO_ROAD_COLOR
 	if building.broken:
 		return BROKEN_COLOR
+	if not building.powered:
+		return NO_COAL_COLOR
 	if not building.fuelled:
 		return COLD_COLOR if def.housing > 0 else NO_COAL_COLOR
 	if building.smoggy and def.housing > 0:

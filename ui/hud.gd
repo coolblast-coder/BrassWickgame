@@ -51,6 +51,9 @@ func bind_city(city: CityState) -> void:
 	_city = city
 	top_bar.bind_city(city)
 	city.changed.connect(_refresh_warnings)
+	city.tier_reached.connect(_on_tier_reached)
+	# Static, so it would otherwise keep the last game's tier after a restart.
+	BuildingCard.city_tier = city.tier
 	# Staffing and Coal figures change each day; keep the open panel current.
 	city.changed.connect(func() -> void: _info_panel.show_building(_selected))
 	_refresh_warnings()
@@ -62,6 +65,21 @@ func bind_events(events: CityEvents) -> void:
 	_events = events
 	events.event_fired.connect(_event_banner.show_event)
 	events.status_changed.connect(_refresh_warnings)
+
+
+## The city grew into a new tier: unlock its buildings and say so.
+func _on_tier_reached(tier: int) -> void:
+	build_bar.set_tier(tier)
+	BuildingCard.city_tier = tier
+	var unlocked: PackedStringArray = []
+	for def in BuildingCatalog.all():
+		if def.tier == tier:
+			unlocked.append(def.display_name)
+	var message := "New buildings: %s." % ", ".join(unlocked) if not unlocked.is_empty() else ""
+	if not CityState.TIER_NEWS[tier].is_empty():
+		message += "\n" + CityState.TIER_NEWS[tier]
+	_event_banner.show_event("Brasswick is now a %s" % CityState.TIER_NAMES[tier], message)
+	_refresh_card()
 
 
 func _on_slot_hovered(index: int) -> void:
@@ -103,6 +121,12 @@ func _refresh_warnings() -> void:
 		warnings.append("In debt: nothing can be built")
 	if _city.hungry_citizens > 0:
 		warnings.append("Hungry citizens: %d" % _city.hungry_citizens)
+	if _city.thirsty_citizens > 0:
+		warnings.append("Thirsty citizens: %d" % _city.thirsty_citizens)
+	if _city.citizens_without_goods > 0:
+		warnings.append("Without Goods: %d" % _city.citizens_without_goods)
+	if _city.unpowered_buildings > 0:
+		warnings.append("Without Steam: %d" % _city.unpowered_buildings)
 	if _city.cold_homes > 0:
 		warnings.append("Cold homes: %d" % _city.cold_homes)
 	if _city.broken_buildings > 0:

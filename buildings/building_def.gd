@@ -8,7 +8,8 @@ extends Resource
 # New styles go at the end: the .tres files store the number.
 enum Style { TENEMENT, GLASSHOUSE, COAL_PIT, BRASSWORKS, MECHANIC_YARD, TEA_GARDEN, ROAD, TOWN_HALL,
 		TOWNHOUSE, MARKET, TAVERN, SMOG_SCRUBBER,
-		AIRSHIP_DOCK, CLOCKTOWER }
+		AIRSHIP_DOCK, CLOCKTOWER, PUMP_STATION, WORKSHOP,
+		POWER_STATION }
 
 ## Which group of the build menu this building is listed under. New
 ## categories go at the end, and need a name in BuildingCatalog.
@@ -23,6 +24,9 @@ enum Category { INFRASTRUCTURE, HOUSING, SUPPLY, INDUSTRY, SERVICES }
 @export var footprint: Vector2i = Vector2i(1, 1)
 @export var style: Style = Style.TENEMENT
 @export var category: Category = Category.INFRASTRUCTURE
+## The city tier (index into CityState.TIER_NAMES) at which this building
+## becomes available. 0 is available from the start.
+@export var tier: int = 0
 ## Main colour of the placeholder model.
 @export var color: Color = Color.WHITE
 ## Roads carry the connection to the Town Hall and can be laid by dragging.
@@ -36,10 +40,15 @@ enum Category { INFRASTRUCTURE, HOUSING, SUPPLY, INDUSTRY, SERVICES }
 @export var cost: int = 0
 ## Citizens this building can house.
 @export var housing: int = 0
+## Residents here expect Goods once the city is a City (Townhouse).
+@export var wants_goods: bool = false
 ## Workers needed for full output.
 @export var workers: int = 0
 ## Coal burned per day while connected to the road network.
 @export var coal_per_day: int = 0
+## Steam used per day once the city is a Metropolis. Without it the
+## building does not run. It is drawn from the stock left by earlier days.
+@export var steam_per_day: int = 0
 ## Food used per day while staffed (Tavern). Citizens eat first; if what is
 ## left does not cover this, the building stays shut for the day.
 @export var food_per_day: int = 0
@@ -47,6 +56,9 @@ enum Category { INFRASTRUCTURE, HOUSING, SUPPLY, INDUSTRY, SERVICES }
 @export var food_output: int = 0
 @export var coal_output: int = 0
 @export var crowns_output: int = 0
+@export var water_output: int = 0
+@export var goods_output: int = 0
+@export var steam_output: int = 0
 
 ## Spare Coal sold per day at full staff, and the Crowns that much earns
 ## (Airship Dock). Only Coal above CitySim.TRADE_COAL_RESERVE is sold.
