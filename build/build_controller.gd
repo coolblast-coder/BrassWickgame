@@ -114,6 +114,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		toggle_demolish()
 	elif event.is_action_pressed("repair"):
 		repair_selected()
+	elif event is InputEventKey and event.pressed and not event.echo \
+			and event.physical_keycode == KEY_P:
+		toggle_selected_power()
 	elif OS.is_debug_build() and event is InputEventKey and event.pressed \
 			and not event.echo and event.physical_keycode == KEY_B:
 		# Development aid: B breaks the selected machine, to test repairs
@@ -166,6 +169,16 @@ func shut_down() -> void:
 	cancel()
 	select(null)
 	set_process_unhandled_input(false)
+
+
+## Switch the selected workplace off, or back on. Homes and buildings
+## without workers have no switch.
+func toggle_selected_power() -> void:
+	if selected_building == null or selected_building.def.workers <= 0:
+		return
+	selected_building.set_paused(not selected_building.paused)
+	# Refresh the info panel.
+	selection_changed.emit(selected_building)
 
 
 ## Pay to repair the selected building at once, if it is broken and the city

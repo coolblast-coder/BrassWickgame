@@ -8,7 +8,9 @@ Not modelled: map layout and smog. Assumes every building has road access
 and that the player keeps homes out of smog (so smog adds no Unrest and
 Glasshouses grow at full rate); the Smog Scrubber is therefore left out.
 The city is capped at `map_tiles` of building footprint. Homes are heated
-Tenements first, then Townhouses, rather than in placement order.
+Tenements first, then Townhouses, rather than in placement order. The
+player never switches buildings off. Stockpiles are limited as in the game,
+and the player adds Warehouses to hold about three days of Food.
 
 A scripted player builds once per day. Three kinds are compared:
   naive   pays for every repair; spends freely from day one
@@ -47,13 +49,14 @@ P = dict(
     water_tier=1, citizens_per_water=5, water_grant=100,
     goods_tier=2, citizens_per_goods=10, goods_grant=40,
     steam_tier=3, steam_grant=60,
+    storage_base=300, storage_per_warehouse=500,  # limit on every stockpile
     homes_per_tea=4,      # homes one Tea Garden can cover (layout guess)
     homes_per_tavern=6,   # homes one Tavern can cover (layout guess)
     machines_per_yard=10, # machines one Mechanic's Yard can cover (layout guess)
     road_cost=6,          # road tiles bought with each building, in Crowns
     map_tiles=2000,       # buildable tiles: about half of the 64 x 64 map
-    # Rule variants, both off in the game:
-    staff_priority=False,   # True: workers go to essentials first
+    # Rule variants:
+    staff_priority=True,    # False: workers fill buildings in placement order
     fuel_food_first=False,  # True: Glasshouses get Coal before other machines
 )
 DEFS = {  # cost, workers, coal burned, food, coal dug, crowns
@@ -75,13 +78,15 @@ STEAM_USE = {"workshop": 4, "dock": 3}
 CLOCK_STEAM = 2
 # Buildings that are not workplaces: cost, housing, coal burned.
 PLAIN = {"tenement": (50, 10, 1), "townhouse": (140, 20, 2), "tea": (60, 0, 0),
+         "warehouse": (100, 0, 0),
          "clocktower": (500, 0, 0)}
-TILES = {"tenement": 4, "townhouse": 4, "tea": 4, "clocktower": 4, "glasshouse": 6, "pit": 9,
+TILES = {"tenement": 4, "townhouse": 4, "tea": 4, "warehouse": 4, "clocktower": 4, "glasshouse": 6, "pit": 9,
          "brassworks": 12, "yard": 4, "market": 6, "tavern": 4, "dock": 9, "pump": 4,
          "workshop": 6, "station": 9}
 TIER = {"brassworks": 1, "yard": 1, "tavern": 1, "townhouse": 1, "pump": 1,
         "dock": 2, "workshop": 2, "clocktower": 3, "station": 3}
 ESSENTIAL = {"glasshouse", "pit", "pump", "workshop", "station"}
+STAFFED_FIRST = {"glasshouse", "pit", "pump", "station"}
 BREAKS = {"glasshouse", "pit", "brassworks", "yard", "pump", "workshop", "station"}
 PRIORITY = {"glasshouse": 0, "pit": 1, "pump": 2, "yard": 3, "station": 4, "workshop": 5,
             "brassworks": 6, "market": 7, "tavern": 8, "dock": 9}
@@ -94,7 +99,7 @@ class City:
         self.water = self.goods = self.steam = 0
         self.pop = self.peak = self.tier = 0
         self.unrest = 0.0
-        self.tenements = self.townhouses = self.teas = 0
+        self.tenements = self.townhouses = self.teas = self.warehouses = 0
         self.clock = False
         self.tiles = 0
         self.work = []  # dicts: kind, broken, staff, ran
@@ -121,6 +126,9 @@ class City:
         cap = self.capacity
         return self.pop * self.townhouses * PLAIN["townhouse"][1] // cap if cap else 0
 
+    def storage(self):
+        return self.p["storage_base"] + self.warehouses * self.p["storage_per_warehouse"]
+
     def upkeep_each(self):
         return self.p["upkeep_by_tier"][self.tier]
 
@@ -144,6 +152,8 @@ class City:
             self.townhouses += 1
         elif kind == "tea":
             self.teas += 1
+        elif kind == "warehouse":
+            self.warehouses += 1
         elif kind == "clocktower":
             self.clock = True
         else:
@@ -174,7 +184,7 @@ class City:
         avail = total
         order = self.work
         if p["staff_priority"]:
-            order = sorted(self.work, key=lambda w: PRIORITY[w["kind"]])
+            order = sorted(self.work, key=lambda w: w["kind"] not in STAFFED_FIRST)
         for w in order:
             w["staff"] = 0
             if not w["broken"]:
@@ -273,10 +283,14 @@ class City:
 
         self.steam = steam_pool + steam_made
 
-        upkeep = self.upkeep_each() * (self.homes + self.teas + len(self.work) + int(self.clock))
+        upkeep = self.upkeep_each() * (self.homes + self.teas + self.warehouses + len(self.work) + int(self.clock))
         self.crowns += crowns_made + pop // 2 - upkeep
-        self.food = food_left
-        self.coal = pool
+        room = self.storage()
+        self.food = min(food_left, room)
+        self.coal = min(pool, room)
+        self.water = min(self.water, room)
+        self.goods = min(self.goods, room)
+        self.steam = min(self.steam, room)
 
         def share_of(a, b):
             return min(1.0, a / b) if b > 0 else 0.0
@@ -365,8 +379,9 @@ class City:
             goods_need = self.townhouses * 2 if self.tier >= p["goods_tier"] else 0
             steam_need = 4 * shop + 3 * dock + (CLOCK_STEAM if self.clock else 0) \
                 if self.tier >= p["steam_tier"] else 0
-            # Workers fill buildings in the order they were placed, so a new
-            # essential building can stand empty in a fully employed city.
+            # With too few workers for the essential buildings, house more
+            # before anything else. (This mattered most when staffing went
+            # purely by placement order; see the staff_priority variant.)
             short_staffed = any(not w["broken"] and w["staff"] < DEFS[w["kind"]][1]
                                 and w["kind"] in ESSENTIAL for w in self.work)
             if self.homes == 0:
@@ -383,6 +398,9 @@ class City:
                 ok = self.buy("station")
             elif shop * 12 < goods_need and self.goods < 6 * goods_need:
                 ok = self.buy("workshop")
+            elif self.crowns > 250 and self.storage() < 3 * max(food_need, coal_need) \
+                    and max(self.coal, self.food) >= 0.9 * self.storage():
+                ok = self.buy("warehouse")
             elif self.tier >= 1 and idle >= 6 and pit * 12 >= 1.3 * (coal_need + 4):
                 ok = self.buy("brassworks")
             elif idle >= 4:
@@ -446,6 +464,8 @@ if __name__ == "__main__":
     if which == "base":
         games = int(sys.argv[2]) if len(sys.argv) > 2 else 300
         report("current values", games=games)
+        report("no storage limit", dict(storage_base=10 ** 9), games=games)
+        report("staffing in placement order", dict(staff_priority=False), games=games)
         report("upkeep 1 at every tier", dict(upkeep_by_tier=(1, 1, 1, 1)), games=games)
         report("upkeep 1, 2, 2, 3", dict(upkeep_by_tier=(1, 2, 2, 3)), games=games)
         report("upkeep 1, 2, 3, 4", dict(upkeep_by_tier=(1, 2, 3, 4)), games=games)

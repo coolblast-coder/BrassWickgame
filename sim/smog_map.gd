@@ -60,8 +60,25 @@ func step(buildings: Array[Building]) -> void:
 	for i in _values.size():
 		_values[i] = minf(_values[i], MAX)
 
+	mark_buildings(buildings)
+	updated.emit()
+
+
+## Set each building's `smoggy` flag from the smog on its tiles.
+func mark_buildings(buildings: Array[Building]) -> void:
 	for building in buildings:
 		building.smoggy = not building.def.is_road and max_over(building) >= SMOGGY_THRESHOLD
+
+
+func to_save() -> Array:
+	return Array(_values)
+
+
+func from_save(data: Array) -> void:
+	if data.size() != _values.size():
+		return
+	for i in data.size():
+		_values[i] = float(data[i])
 	updated.emit()
 
 

@@ -13,6 +13,8 @@ signal slot_pressed(index: int)
 signal slot_hovered(index: int)
 signal demolish_pressed
 signal overlay_pressed
+signal stats_pressed
+signal menu_pressed
 ## Any button of the menu was pressed, by mouse or by key.
 signal clicked
 
@@ -70,6 +72,10 @@ func _ready() -> void:
 	_overlay_button = _make_button(tab_row, "")
 	_overlay_button.pressed.connect(func() -> void: overlay_pressed.emit())
 	set_overlay_name("none")
+	var stats_button := _make_button(tab_row, "G  Stats")
+	stats_button.pressed.connect(func() -> void: stats_pressed.emit())
+	var menu_button := _make_button(tab_row, "Esc  Menu")
+	menu_button.pressed.connect(func() -> void: menu_pressed.emit())
 	set_tier(0)
 
 

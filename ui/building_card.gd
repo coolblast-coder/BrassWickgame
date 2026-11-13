@@ -64,7 +64,7 @@ static func describe_def(def: BuildingDef) -> String:
 	if def.housing > 0:
 		lines.append("Houses %d citizens" % def.housing)
 	if def.workers > 0:
-		lines.append("Needs %d workers" % def.workers)
+		lines.append("Needs %d workers%s" % [def.workers, ", staffed first" if def.essential else ""])
 	if def.coal_per_day > 0:
 		lines.append("Burns %d Coal a day" % def.coal_per_day)
 	if def.food_per_day > 0:
@@ -86,6 +86,8 @@ static func describe_def(def: BuildingDef) -> String:
 		lines.append("Makes %d Goods a day" % def.goods_output)
 	if def.wants_goods:
 		lines.append("Residents expect Goods from the %s tier on" % CityState.TIER_NAMES[CitySim.GOODS_TIER])
+	if def.storage > 0:
+		lines.append("Room for %d more of every resource" % def.storage)
 	if def.trade_coal > 0:
 		lines.append("Sells up to %d Coal a day for %d Crowns" % [def.trade_coal, def.trade_crowns])
 	if def.calming:
@@ -117,6 +119,8 @@ static func describe_building(building: Building) -> String:
 		lines.append("No road access - not working")
 	elif building.broken:
 		lines.append("Broken down - not working")
+	elif building.paused:
+		lines.append("Switched off")
 	if def.housing > 0:
 		lines.append("Residents: %d / %d" % [building.residents, def.housing])
 	if def.workers > 0:

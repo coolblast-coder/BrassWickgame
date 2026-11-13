@@ -5,6 +5,8 @@ extends PanelContainer
 ## row fits the 1152-pixel base width; tooltips carry the detail.
 
 const DEBT_COLOR := Color(1.0, 0.45, 0.4)
+## A stockpile that has no room left: anything more is being lost.
+const FULL_COLOR := Color(1.0, 0.85, 0.45)
 const UNREST_WARN_COLOR := Color(1.0, 0.75, 0.3)
 const UNREST_DANGER_COLOR := Color(1.0, 0.45, 0.4)
 
@@ -21,6 +23,9 @@ var _food_label: Label
 var _water_label: Label
 var _goods_label: Label
 var _steam_label: Label
+var _storage_label: Label
+## Each stat label's fixed tooltip, to which yesterday's ledger is added.
+var _base_tooltips: Dictionary[Label, String] = {}
 var _population_label: Label
 var _workers_label: Label
 var _unrest_label: Label
@@ -56,6 +61,7 @@ func _ready() -> void:
 	_goods_label.hide()
 	_steam_label = _make_stat_label("Steam, and the change over the last day.\nToday's output can be used from tomorrow.")
 	_steam_label.hide()
+	_storage_label = _make_stat_label("The most the city can keep of each resource.\nAnything above it at the end of the day is lost.\nA resource shown in yellow is full. Build Warehouses for more room.")
 	_population_label = _make_stat_label("Citizens / room in connected homes")
 	_workers_label = _make_stat_label("Workers with a job / all workers (half the population)")
 	_unrest_label = _make_stat_label("")
@@ -102,6 +108,18 @@ func _refresh_city() -> void:
 	_goods_label.text = "Goods %d (%+d)" % [_city.goods, _city.goods_change]
 	_steam_label.visible = _city.tier >= CitySim.STEAM_TIER
 	_steam_label.text = "Steam %d (%+d)" % [_city.steam, _city.steam_change]
+	_storage_label.text = "Store %d" % _city.storage_capacity
+	_show_ledger(_crowns_label, &"crowns")
+	_show_ledger(_coal_label, &"coal")
+	_show_ledger(_food_label, &"food")
+	_show_ledger(_water_label, &"water")
+	_show_ledger(_goods_label, &"goods")
+	_show_ledger(_steam_label, &"steam")
+	_tint_if_full(_coal_label, _city.coal)
+	_tint_if_full(_food_label, _city.food)
+	_tint_if_full(_water_label, _city.water)
+	_tint_if_full(_goods_label, _city.goods)
+	_tint_if_full(_steam_label, _city.steam)
 	_population_label.text = "%s  Pop %d/%d" % [_city.tier_name(), _city.population, _city.housing_capacity]
 	_workers_label.text = "Workers %d/%d" % [_city.workers_employed, _city.workers_total]
 	# Debt is the one stockpile that can go below zero; make it obvious.
@@ -122,9 +140,23 @@ func _refresh_city() -> void:
 	_unrest_label.tooltip_text = tooltip
 
 
+## Add yesterday's ledger for a stockpile to its label's tooltip.
+func _show_ledger(label: Label, key: StringName) -> void:
+	var lines: PackedStringArray = _city.ledger.get(key, PackedStringArray())
+	var tooltip: String = _base_tooltips.get(label, "")
+	if not lines.is_empty():
+		tooltip += "\n\nYesterday:\n" + "\n".join(lines)
+	label.tooltip_text = tooltip
+
+
+func _tint_if_full(label: Label, amount: int) -> void:
+	label.modulate = FULL_COLOR if amount >= _city.storage_capacity else Color.WHITE
+
+
 func _make_stat_label(tooltip: String) -> Label:
 	var label := Label.new()
 	label.tooltip_text = tooltip
+	_base_tooltips[label] = tooltip
 	# Labels ignore the mouse by default, which would also suppress tooltips.
 	label.mouse_filter = Control.MOUSE_FILTER_PASS
 	_row.add_child(label)

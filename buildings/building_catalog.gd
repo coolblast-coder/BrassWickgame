@@ -12,6 +12,7 @@ const PATHS: Array[String] = [
 	"res://buildings/defs/glasshouse.tres",
 	"res://buildings/defs/coal_pit.tres",
 	"res://buildings/defs/pump_station.tres",
+	"res://buildings/defs/warehouse.tres",
 	"res://buildings/defs/brassworks.tres",
 	"res://buildings/defs/mechanic_yard.tres",
 	"res://buildings/defs/tea_garden.tres",
@@ -25,7 +26,13 @@ const PATHS: Array[String] = [
 	"res://buildings/defs/clocktower.tres",
 ]
 
+## Things that exist but cannot be built by the player.
+const OTHER_PATHS: Array[String] = [
+	"res://buildings/defs/town_hall.tres",
+]
+
 static var _defs: Array[BuildingDef] = []
+static var _by_id: Dictionary[StringName, BuildingDef] = {}
 
 
 static func all() -> Array[BuildingDef]:
@@ -37,3 +44,15 @@ static func all() -> Array[BuildingDef]:
 				continue
 			_defs.append(def)
 	return _defs
+
+
+## The definition with this id, buildable or not; null if there is none.
+static func by_id(id: StringName) -> BuildingDef:
+	if _by_id.is_empty():
+		for def in all():
+			_by_id[def.id] = def
+		for path in OTHER_PATHS:
+			var def := load(path) as BuildingDef
+			if def != null:
+				_by_id[def.id] = def
+	return _by_id.get(id)

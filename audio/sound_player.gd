@@ -27,10 +27,13 @@ var _streams: Dictionary[StringName, AudioStream] = {}
 
 
 func _ready() -> void:
+	# Creates the Ambience and Effects buses and applies the saved volumes.
+	GameSettings.ensure_ready()
 	_wind = _make_loop(&"wind_loop", WIND_DB_EMPTY)
 	_city = _make_loop(&"city_loop", CITY_DB_EMPTY)
 	for i in VOICES:
 		var voice := AudioStreamPlayer.new()
+		voice.bus = GameSettings.EFFECTS_BUS
 		add_child(voice)
 		_voices.append(voice)
 
@@ -66,6 +69,7 @@ func set_city_size(population: int) -> void:
 
 func _make_loop(sound: StringName, volume_db: float) -> AudioStreamPlayer:
 	var player := AudioStreamPlayer.new()
+	player.bus = GameSettings.AMBIENCE_BUS
 	player.volume_db = volume_db
 	add_child(player)
 	var stream := _stream(sound) as AudioStreamWAV

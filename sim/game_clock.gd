@@ -71,3 +71,16 @@ func toggle_speed() -> void:
 		return
 	speed = NORMAL_SPEED if speed == FAST_SPEED else FAST_SPEED
 	state_changed.emit()
+
+
+func to_save() -> Dictionary:
+	return {"day": day, "elapsed": _elapsed, "speed": speed}
+
+
+## Restore the saved time. A loaded game always starts paused.
+func from_save(data: Dictionary) -> void:
+	day = int(data.get("day", 1))
+	_elapsed = clampf(float(data.get("elapsed", 0.0)), 0.0, SECONDS_PER_DAY - 0.01)
+	speed = FAST_SPEED if int(data.get("speed", NORMAL_SPEED)) == FAST_SPEED else NORMAL_SPEED
+	paused = true
+	state_changed.emit()

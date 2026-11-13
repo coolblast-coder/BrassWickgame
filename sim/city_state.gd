@@ -53,6 +53,13 @@ var steam: int = 0:
 		steam = value
 		changed.emit()
 
+## The most the city can keep of each of Coal, Food, Water, Goods and Steam.
+## Anything above it at the end of a day is lost. Set by CitySim.
+var storage_capacity: int = 0:
+	set(value):
+		storage_capacity = value
+		changed.emit()
+
 var population: int = 0:
 	set(value):
 		population = value
@@ -86,6 +93,11 @@ var unrest: float = 0.0:
 ## What moved Unrest on the last simulated day, one line per cause, for the
 ## top bar's tooltip. Set by CitySim.
 var unrest_causes: PackedStringArray = PackedStringArray()
+
+## Where each stockpile's change came from on the last simulated day, one
+## line per source, for the top bar's tooltips. Keys: &"crowns", &"coal",
+## &"food", &"water", &"goods", &"steam". Set by CitySim.
+var ledger: Dictionary[StringName, PackedStringArray] = {}
 
 ## Days in a row that have ended with Unrest at 100. Set by CitySim.
 var days_at_max_unrest: int = 0
@@ -133,3 +145,33 @@ var broken_buildings: int = 0
 
 func can_afford(cost: int) -> bool:
 	return crowns >= cost
+
+
+func to_save() -> Dictionary:
+	return {
+		"crowns": crowns, "coal": coal, "food": food, "water": water, "goods": goods,
+		"steam": steam, "population": population, "housing_capacity": housing_capacity,
+		"workers_total": workers_total, "workers_employed": workers_employed,
+		"unrest": unrest, "days_at_max_unrest": days_at_max_unrest,
+		"peak_population": peak_population, "tier": tier,
+		"storage_capacity": storage_capacity,
+	}
+
+
+## Restore the saved figures. The tier is set directly: no banner, no grant.
+func from_save(data: Dictionary) -> void:
+	crowns = int(data.get("crowns", crowns))
+	coal = int(data.get("coal", coal))
+	food = int(data.get("food", food))
+	water = int(data.get("water", 0))
+	goods = int(data.get("goods", 0))
+	steam = int(data.get("steam", 0))
+	housing_capacity = int(data.get("housing_capacity", 0))
+	workers_total = int(data.get("workers_total", 0))
+	workers_employed = int(data.get("workers_employed", 0))
+	days_at_max_unrest = int(data.get("days_at_max_unrest", 0))
+	peak_population = int(data.get("peak_population", 0))
+	tier = clampi(int(data.get("tier", 0)), 0, TIER_NAMES.size() - 1)
+	storage_capacity = int(data.get("storage_capacity", storage_capacity))
+	unrest = float(data.get("unrest", 0.0))
+	population = int(data.get("population", 0))

@@ -7,9 +7,12 @@ extends PanelContainer
 
 ## The Repair button was clicked for the building on show.
 signal repair_pressed
+## The Switch off / Switch on button was clicked for the building on show.
+signal power_pressed
 
 var _label: Label
 var _repair_button: Button
+var _power_button: Button
 
 
 func _ready() -> void:
@@ -26,6 +29,10 @@ func _ready() -> void:
 	_repair_button.focus_mode = Control.FOCUS_NONE
 	_repair_button.pressed.connect(func() -> void: repair_pressed.emit())
 	column.add_child(_repair_button)
+	_power_button = Button.new()
+	_power_button.focus_mode = Control.FOCUS_NONE
+	_power_button.pressed.connect(func() -> void: power_pressed.emit())
+	column.add_child(_power_button)
 	hide()
 
 
@@ -36,6 +43,8 @@ func show_building(building: Building) -> void:
 		return
 	_label.text = describe(building)
 	_repair_button.visible = building.broken
+	_power_button.visible = building.def.workers > 0
+	_power_button.text = "P  Switch on" if building.paused else "P  Switch off"
 	show()
 
 
@@ -60,8 +69,11 @@ static func describe(building: Building) -> String:
 	if def.wants_goods:
 		lines.append("Residents expect Goods from the %s tier on." % CityState.TIER_NAMES[CitySim.GOODS_TIER])
 
+	if building.paused:
+		lines.append("SWITCHED OFF - takes no workers, makes nothing")
 	if def.workers > 0:
-		lines.append("Workers: %d / %d" % [building.staff, def.workers])
+		var priority := " (staffed first)" if def.essential else ""
+		lines.append("Workers: %d / %d%s" % [building.staff, def.workers, priority])
 
 	if def.coal_per_day > 0:
 		var coal_line := "Coal: burns %d per day" % def.coal_per_day
@@ -97,6 +109,8 @@ static func describe(building: Building) -> String:
 		else:
 			lines.append("Smog: heavy here")
 	lines.append("Upkeep: %d Crowns per day" % CitySim.UPKEEP_BY_TIER[BuildingCard.city_tier])
+	if def.storage > 0:
+		lines.append("Room for %d more of every resource." % def.storage)
 	if def.trade_coal > 0:
 		lines.append("Sells up to %d spare Coal a day for %d Crowns," % [def.trade_coal, def.trade_crowns])
 		lines.append("  never dropping stock below %d Coal." % CitySim.TRADE_COAL_RESERVE)

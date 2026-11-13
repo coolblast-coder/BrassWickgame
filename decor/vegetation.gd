@@ -29,6 +29,8 @@ var _woodland := FastNoiseLite.new()
 ## Map trees still standing: tile -> [MultiMesh, instance index].
 var _map_trees: Dictionary[Vector2i, Array] = {}
 var _dirty: bool = false
+## Tiles whose tree has been cleared, for saving.
+var _cleared: Array[Vector2i] = []
 
 
 func setup(grid: CityGrid, hills: Hills) -> void:
@@ -58,15 +60,36 @@ func _process(_delta: float) -> void:
 ## Remove every map tree whose tile now has a building or road on it.
 func _clear_built_tiles() -> void:
 	for cell: Vector2i in _map_trees.keys():
-		if _grid.building_at(cell) == null:
-			continue
-		var entry: Array = _map_trees[cell]
-		var multimesh: MultiMesh = entry[0]
-		var index: int = entry[1]
-		# A MultiMesh cannot drop one instance; shrink it to nothing instead.
-		var hidden := Transform3D(Basis.from_scale(Vector3.ZERO), Vector3(0.0, -100.0, 0.0))
-		multimesh.set_instance_transform(index, hidden)
-		_map_trees.erase(cell)
+		if _grid.building_at(cell) != null:
+			_remove_tree(cell)
+
+
+func _remove_tree(cell: Vector2i) -> void:
+	if not _map_trees.has(cell):
+		return
+	var entry: Array = _map_trees[cell]
+	var multimesh: MultiMesh = entry[0]
+	var index: int = entry[1]
+	# A MultiMesh cannot drop one instance; shrink it to nothing instead.
+	var hidden := Transform3D(Basis.from_scale(Vector3.ZERO), Vector3(0.0, -100.0, 0.0))
+	multimesh.set_instance_transform(index, hidden)
+	_map_trees.erase(cell)
+	_cleared.append(cell)
+
+
+## The cleared tiles, as [x, y] pairs.
+func to_save() -> Array:
+	var data := []
+	for cell in _cleared:
+		data.append([cell.x, cell.y])
+	return data
+
+
+## Clear the trees a saved game had already cleared.
+func from_save(data: Array) -> void:
+	for pair: Variant in data:
+		if pair is Array and pair.size() == 2:
+			_remove_tree(Vector2i(int(pair[0]), int(pair[1])))
 
 
 ## How wooded a spot is, from 0 (open) to 1 (dense woodland).

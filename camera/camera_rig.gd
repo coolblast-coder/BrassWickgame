@@ -60,6 +60,14 @@ func _unhandled_input(event: InputEvent) -> void:
 			yaw -= deg_to_rad(event.relative.x * drag_rotate_degrees)
 
 
+## Move the view to a spot on the ground, zooming in if it is far out.
+func focus_on(world_position: Vector3) -> void:
+	position = Vector3(
+			clampf(world_position.x, bounds.position.x, bounds.end.x), 0.0,
+			clampf(world_position.z, bounds.position.y, bounds.end.y))
+	_target_distance = minf(_target_distance, 45.0)
+
+
 func _rotate_with_keys(delta: float) -> void:
 	var turn := Input.get_axis("cam_rotate_left", "cam_rotate_right")
 	yaw += deg_to_rad(turn * rotate_speed_degrees * delta)

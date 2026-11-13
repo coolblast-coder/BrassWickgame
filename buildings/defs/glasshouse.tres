@@ -13,6 +13,7 @@ category = 2
 color = Color(0.62, 0.8, 0.72, 1)
 cost = 80
 workers = 4
+essential = true
 coal_per_day = 1
 food_output = 20
 smog_per_day = 1

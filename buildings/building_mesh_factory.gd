@@ -72,6 +72,8 @@ static func build(def: BuildingDef) -> Node3D:
 			_workshop(root, w, d, def.color)
 		BuildingDef.Style.POWER_STATION:
 			_power_station(root, w, d, def.color)
+		BuildingDef.Style.WAREHOUSE:
+			_warehouse(root, w, d, def.color)
 		BuildingDef.Style.ROAD:
 			# Full tile, no margin, so neighbouring road tiles join up.
 			_box(root, Vector3(w + MARGIN * 2.0, ROAD_HEIGHT, d + MARGIN * 2.0),
@@ -502,6 +504,42 @@ static func _power_station(root: Node3D, w: float, d: float, color: Color) -> vo
 	hub.rotation.x = PI * 0.5
 	for side: float in [-1.0, 1.0]:
 		_box(root, Vector3(0.3, 1.15, 0.12), Vector3(0.0, ground + 0.575, wheel.z + side * 0.25), IRON)
+
+
+static func _warehouse(root: Node3D, w: float, d: float, color: Color) -> void:
+	# Tall timber-clad store on a stone footing: wide double doors, a hoist
+	# beam over a loft hatch, a slate roof, and goods stacked outside.
+	var bw := w - 0.5
+	var bd := d - 0.9
+	var bz := -0.2
+	var base := 0.3
+	var h := 3.2
+	var top := base + h
+	var front := bz + bd * 0.5
+	_box(root, Vector3(bw + 0.15, base, bd + 0.15), Vector3(0.0, base * 0.5, bz), STONE)
+	_box(root, Vector3(bw, h, bd), Vector3(0.0, base + h * 0.5, bz), color)
+	_prism(root, Vector3(bw + 0.3, 1.3, bd + 0.3), Vector3(0.0, top + 0.65, bz), SLATE)
+	# Corner posts and a band between the floors.
+	for corner: Vector2 in [Vector2(-1, -1), Vector2(1, -1), Vector2(-1, 1), Vector2(1, 1)]:
+		_box(root, Vector3(0.16, h, 0.16),
+				Vector3(corner.x * bw * 0.5, base + h * 0.5, bz + corner.y * bd * 0.5), WOOD.darkened(0.2))
+	_box(root, Vector3(bw + 0.06, 0.12, bd + 0.06), Vector3(0.0, base + h * 0.55, bz), WOOD.darkened(0.2))
+	# Double doors, loft hatch, hoist beam with a hook.
+	_box(root, Vector3(1.5, 1.6, 0.08), Vector3(0.0, base + 0.8, front + 0.03), WOOD)
+	_box(root, Vector3(0.04, 1.6, 0.1), Vector3(0.0, base + 0.8, front + 0.04), SOOT)
+	_box(root, Vector3(0.7, 0.8, 0.08), Vector3(0.0, base + h * 0.78, front + 0.03), WOOD)
+	_box(root, Vector3(0.12, 0.12, 0.6), Vector3(0.0, top + 0.1, front + 0.25), WOOD.darkened(0.2))
+	_cylinder(root, 0.015, 0.9, Vector3(0.0, top - 0.4, front + 0.45), SOOT)
+	_box(root, Vector3(0.12, 0.14, 0.12), Vector3(0.0, top - 0.9, front + 0.45), BRASS, 0.7)
+	for side: float in [-1.0, 1.0]:
+		_windows_x(root, 2, bd, base + h * 0.8, side * (bw * 0.5 + 0.02), Vector2(0.45, 0.45), bz)
+	# Crates, sacks and barrels by the doors.
+	var yard_z := front + 0.4
+	_box(root, Vector3(0.55, 0.5, 0.55), Vector3(-bw * 0.36, 0.25, yard_z), WOOD.lightened(0.15))
+	_box(root, Vector3(0.45, 0.4, 0.45), Vector3(-bw * 0.36, 0.7, yard_z), WOOD)
+	_cylinder(root, 0.22, 0.55, Vector3(bw * 0.38, 0.275, yard_z), WOOD.darkened(0.2))
+	_cylinder(root, 0.22, 0.55, Vector3(bw * 0.38 - 0.5, 0.275, yard_z + 0.1), WOOD.darkened(0.2))
+	_capsule(root, 0.2, 0.6, Vector3(bw * 0.2, 0.2, yard_z + 0.15), PLASTER.darkened(0.15))
 
 
 static func _glasshouse(root: Node3D, w: float, d: float, color: Color) -> void:

@@ -9,10 +9,13 @@ extends CanvasLayer
 @onready var _legend_label: Label = $LegendLabel
 @onready var _hint_label: Label = $HintLabel
 @onready var _warning_label: Label = $WarningLabel
-@onready var _info_panel: InfoPanel = $InfoPanel
+@onready var _info_panel: InfoPanel = $RightColumn/InfoPanel
+@onready var _advisor: AdvisorPanel = $RightColumn/AdvisorPanel
 @onready var _event_banner: EventBanner = $EventBanner
 @onready var _game_over_panel: GameOverPanel = $GameOverPanel
 @onready var _card: BuildingCard = $BuildingCard
+@onready var _stats_panel: StatsPanel = $StatsPanel
+@onready var game_menu: GameMenu = $GameMenu
 
 var _city: CityState
 var _events: CityEvents
@@ -28,16 +31,68 @@ var _idle: bool = true
 
 ## The Repair button in the info panel was clicked.
 signal repair_pressed
+## The Switch off / on button in the info panel was clicked.
+signal power_pressed
 
 
 ## The Restart button on the end screen was clicked.
 signal restart_pressed
+## An advisor line about a building was clicked: where the camera should go.
+signal jump_requested(world_position: Vector3)
 
 
 func _ready() -> void:
 	_info_panel.repair_pressed.connect(func() -> void: repair_pressed.emit())
+	_info_panel.power_pressed.connect(func() -> void: power_pressed.emit())
 	_game_over_panel.restart_pressed.connect(func() -> void: restart_pressed.emit())
 	build_bar.slot_hovered.connect(_on_slot_hovered)
+	build_bar.stats_pressed.connect(_stats_panel.toggle)
+	build_bar.menu_pressed.connect(game_menu.open)
+	_advisor.jump_requested.connect(func(where: Vector3) -> void: jump_requested.emit(where))
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	var key := event as InputEventKey
+	if key == null or not key.pressed or key.echo:
+		return
+	if key.physical_keycode == KEY_G:
+		_stats_panel.toggle()
+		get_viewport().set_input_as_handled()
+	elif key.physical_keycode == KEY_ESCAPE:
+		# Esc closes whatever is open; with nothing open, no tool in hand and
+		# no building selected, it opens the menu. Otherwise it is left for
+		# the build controller, which cancels or deselects.
+		if game_menu.visible:
+			game_menu.close()
+		elif _stats_panel.visible:
+			_stats_panel.toggle()
+		elif _idle and _selected == null:
+			game_menu.open()
+		else:
+			return
+		get_viewport().set_input_as_handled()
+
+
+## Called once by Main. The advisor reads the map and the city.
+func bind_advisor(grid: CityGrid) -> void:
+	_advisor.bind(grid, _city)
+
+
+## Called once by Main. The statistics screen draws from the history.
+func bind_history(history: CityHistory) -> void:
+	_stats_panel.bind(history, _city)
+
+
+## Show a short message in the banner used for events.
+func show_notice(title: String, message: String = "") -> void:
+	_event_banner.show_event(title, message)
+
+
+## Bring the menu and cards in line with the city after a game is loaded.
+func sync_after_load() -> void:
+	build_bar.set_tier(_city.tier)
+	BuildingCard.city_tier = _city.tier
+	_refresh_warnings()
 
 
 ## Cover the HUD with the end screen and the final score.

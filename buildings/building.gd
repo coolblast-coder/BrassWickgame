@@ -15,6 +15,10 @@ var rotation_steps: int = 0
 var road_access: bool = true
 ## Citizens living here, for homes; set by the daily simulation.
 var residents: int = 0
+## True while the player has switched this workplace off: it takes no
+## workers, burns nothing and makes nothing, but still costs upkeep.
+## Change it through set_paused().
+var paused: bool = false
 ## Workers assigned to this building by the last daily simulation.
 var staff: int = 0
 ## False if this building needed Coal (or, for a Tavern, Food) on the last
@@ -49,6 +53,8 @@ var _windows: Array[MeshInstance3D] = []
 var _no_access_marker: MeshInstance3D
 ## Shown above broken buildings; created on first need.
 var _broken_marker: MeshInstance3D
+## Shown above buildings that are switched off; created on first need.
+var _paused_marker: MeshInstance3D
 
 
 ## Footprint in tiles after rotation: odd quarter turns swap width and depth.
@@ -149,6 +155,21 @@ func set_broken(value: bool) -> void:
 		_broken_marker.visible = broken
 
 
+## Switch a workplace off or back on, and show it: a switched-off building
+## gets a grey slab above the roof.
+func set_paused(value: bool) -> void:
+	if value == paused:
+		return
+	paused = value
+	if _paused_marker == null and paused:
+		var slab := BoxMesh.new()
+		slab.size = Vector3(0.9, 0.25, 0.9)
+		_paused_marker = _make_marker("PausedMarker", slab, Color(0.6, 0.62, 0.66), 3.3)
+		add_child(_paused_marker)
+	if _paused_marker != null:
+		_paused_marker.visible = paused
+
+
 ## A red downward-pointing cone floating above the roof.
 func _make_no_access_marker() -> MeshInstance3D:
 	var cone := CylinderMesh.new()
@@ -218,3 +239,25 @@ func footprint_rect() -> Rect2i:
 
 func cells() -> Array[Vector2i]:
 	return cells_for(def, origin, rotation_steps)
+
+
+## This building's saved state. Its place in the list is its place in the
+## building order, which decides who gets workers and Coal first.
+func to_save() -> Dictionary:
+	return {
+		"id": String(def.id), "x": origin.x, "y": origin.y, "rotation": rotation_steps,
+		"broken": broken, "paused": paused, "residents": residents, "staff": staff,
+		"fuelled": fuelled, "powered": powered, "ran_today": ran_today,
+	}
+
+
+## Restore the state that setup() does not cover.
+func from_save(data: Dictionary) -> void:
+	set_broken(bool(data.get("broken", false)))
+	set_paused(bool(data.get("paused", false)))
+	residents = int(data.get("residents", 0))
+	staff = int(data.get("staff", 0))
+	fuelled = bool(data.get("fuelled", true))
+	powered = bool(data.get("powered", true))
+	ran_today = bool(data.get("ran_today", false))
+	refresh_windows()

@@ -9,7 +9,7 @@ extends Resource
 enum Style { TENEMENT, GLASSHOUSE, COAL_PIT, BRASSWORKS, MECHANIC_YARD, TEA_GARDEN, ROAD, TOWN_HALL,
 		TOWNHOUSE, MARKET, TAVERN, SMOG_SCRUBBER,
 		AIRSHIP_DOCK, CLOCKTOWER, PUMP_STATION, WORKSHOP,
-		POWER_STATION }
+		POWER_STATION, WAREHOUSE }
 
 ## Which group of the build menu this building is listed under. New
 ## categories go at the end, and need a name in BuildingCatalog.
@@ -44,6 +44,9 @@ enum Category { INFRASTRUCTURE, HOUSING, SUPPLY, INDUSTRY, SERVICES }
 @export var wants_goods: bool = false
 ## Workers needed for full output.
 @export var workers: int = 0
+## Essential buildings (Food, Coal, Water, Steam) get their workers before
+## all others, whatever order things were built in.
+@export var essential: bool = false
 ## Coal burned per day while connected to the road network.
 @export var coal_per_day: int = 0
 ## Steam used per day once the city is a Metropolis. Without it the
@@ -64,6 +67,9 @@ enum Category { INFRASTRUCTURE, HOUSING, SUPPLY, INDUSTRY, SERVICES }
 ## (Airship Dock). Only Coal above CitySim.TRADE_COAL_RESERVE is sold.
 @export var trade_coal: int = 0
 @export var trade_crowns: int = 0
+
+## Extra room for every stockpile while connected (Warehouse).
+@export var storage: int = 0
 
 @export_group("Breakdowns")
 ## Machines can break down; a broken one produces nothing until repaired.

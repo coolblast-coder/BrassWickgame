@@ -7,6 +7,8 @@ var grid := CityGrid.new()
 var city := CityState.new()
 ## Smog per tile.
 var smog := SmogMap.new()
+## Day-by-day record of the city's figures, for the statistics screen.
+var history := CityHistory.new()
 
 ## Set when buildings or roads change; road access is refreshed once per frame
 ## at most, however many tiles changed (a dragged road adds many at once).
@@ -16,6 +18,8 @@ var _events: CityEvents
 var _game_over: bool = false
 ## Set when an event has sounded today, so the day bell stays quiet.
 var _event_sounded: bool = false
+## True if opening the menu paused the clock, so closing it resumes.
+var _paused_by_menu: bool = false
 
 @onready var _tile_cursor: TileCursor = $TileCursor
 @onready var _hud: HUD = $HUD
@@ -28,6 +32,7 @@ var _event_sounded: bool = false
 @onready var _hills: Hills = $Hills
 @onready var _vegetation: Vegetation = $Vegetation
 @onready var _sound: SoundPlayer = $Sound
+@onready var _camera_rig: CameraRig = $CameraRig
 
 
 func _ready() -> void:
@@ -37,11 +42,21 @@ func _ready() -> void:
 	_build_controller.mode_changed.connect(_hud.show_build_mode)
 	_build_controller.selection_changed.connect(_hud.show_selection)
 	_hud.repair_pressed.connect(_build_controller.repair_selected)
+	_hud.power_pressed.connect(_build_controller.toggle_selected_power)
+	_hud.power_pressed.connect(func() -> void: _sound.play(&"click", -8.0))
 	_hud.restart_pressed.connect(func() -> void: get_tree().reload_current_scene())
 	_hud.build_bar.slot_pressed.connect(_build_controller.select_slot)
 	_hud.build_bar.demolish_pressed.connect(_build_controller.toggle_demolish)
 	_hud.top_bar.bind_clock(_clock)
 	_hud.bind_city(city)
+	_hud.bind_history(history)
+	_hud.bind_advisor(grid)
+	_hud.jump_requested.connect(_camera_rig.focus_on)
+	_hud.game_menu.toggled.connect(_on_menu_toggled)
+	_hud.game_menu.save_pressed.connect(save_game)
+	_hud.game_menu.load_pressed.connect(load_game)
+	_hud.game_menu.main_menu_pressed.connect(
+			func() -> void: get_tree().change_scene_to_file("res://menu/main_menu.tscn"))
 	_sim = CitySim.new(grid, city, smog)
 	_events = CityEvents.new(grid, city, _sim, smog)
 	_hud.bind_events(_events)
@@ -59,6 +74,9 @@ func _ready() -> void:
 	grid.buildings_changed.connect(func() -> void: _road_access_dirty = true)
 	_place_town_hall()
 	_vegetation.setup(grid, _hills)
+	if not SaveGame.pending.is_empty():
+		_apply_save(SaveGame.pending)
+		SaveGame.pending = {}
 
 
 func _process(_delta: float) -> void:
@@ -81,7 +99,85 @@ func _on_overlay_mode_changed(_mode: OverlayView.Mode) -> void:
 	_hud.show_legend(_overlay.legend())
 
 
+## The game stands still while the menu is open.
+func _on_menu_toggled(open: bool) -> void:
+	if open:
+		_paused_by_menu = not _clock.paused
+		if _paused_by_menu:
+			_clock.toggle_pause()
+	elif _paused_by_menu:
+		_paused_by_menu = false
+		if _clock.paused:
+			_clock.toggle_pause()
+
+
+## F9: save the game to the single save file.
+func save_game() -> void:
+	if _game_over:
+		return
+	var buildings := []
+	for building in grid.all_buildings:
+		buildings.append(building.to_save())
+	var saved := SaveGame.write({
+		"clock": _clock.to_save(),
+		"city": city.to_save(),
+		"events": _events.to_save(),
+		"smog": smog.to_save(),
+		"history": history.to_save(),
+		"cleared_trees": _vegetation.to_save(),
+		"buildings": buildings,
+	})
+	if saved:
+		_hud.show_notice("Game saved", "Day %d. Press F10 to load it." % _clock.day)
+	else:
+		_hud.show_notice("Could not save", "The save file could not be written.")
+	_sound.play(&"click" if saved else &"error", -6.0)
+
+
+## F10: load the save file, by restarting the scene with it.
+func load_game() -> void:
+	if SaveGame.load_from_disk():
+		get_tree().reload_current_scene()
+	else:
+		_hud.show_notice("Nothing to load", "There is no saved game yet. Press F9 to save.")
+		_sound.play(&"error", -10.0)
+
+
+## Rebuild a saved city in this freshly started scene.
+func _apply_save(data: Dictionary) -> void:
+	# Buildings first, in their saved order: it decides workers and Coal.
+	for entry: Variant in data.get("buildings", []):
+		if not entry is Dictionary:
+			continue
+		var def := BuildingCatalog.by_id(StringName(str(entry.get("id", ""))))
+		# The Town Hall is already in place.
+		if def == null or not def.demolishable:
+			continue
+		var origin := Vector2i(int(entry.get("x", 0)), int(entry.get("y", 0)))
+		var steps := int(entry.get("rotation", 0))
+		if not grid.can_place(Building.cells_for(def, origin, steps)):
+			continue
+		_build_controller.place_building(def, origin, steps).from_save(entry)
+	_vegetation.from_save(data.get("cleared_trees", []))
+	smog.from_save(data.get("smog", []))
+	smog.mark_buildings(grid.all_buildings)
+	city.from_save(data.get("city", {}))
+	_events.from_save(data.get("events", {}))
+	history.from_save(data.get("history", {}))
+	_clock.from_save(data.get("clock", {}))
+	_refresh_road_access()
+	_hud.sync_after_load()
+	_hud.show_notice("Game loaded", "Day %d. Paused: press Space to carry on." % _clock.day)
+
+
 func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.physical_keycode == KEY_F9:
+			save_game()
+			return
+		if event.physical_keycode == KEY_F10:
+			load_game()
+			return
 	# Development aids: F1 to F4 fire each event at once, to test them without
 	# waiting for the dice, and F6 unlocks the next city tier. Not in exported
 	# builds.
@@ -113,6 +209,7 @@ func _on_day_ended(day: int) -> void:
 	var broken_before := _count_broken()
 	_event_sounded = false
 	_sim.run_day()
+	history.record(city)
 	if city.days_at_max_unrest >= CitySim.WALKOUT_DAYS:
 		_end_game(day)
 		return

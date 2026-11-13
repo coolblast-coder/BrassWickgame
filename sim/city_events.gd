@@ -145,3 +145,20 @@ func _tick_lasting_events() -> void:
 			_smog.clearing_paused = false
 	if changed:
 		status_changed.emit()
+
+
+func to_save() -> Dictionary:
+	return {
+		"coal_strike_days_left": coal_strike_days_left,
+		"smog_storm_days_left": smog_storm_days_left,
+		"last_event_day": _last_event_day,
+	}
+
+
+func from_save(data: Dictionary) -> void:
+	coal_strike_days_left = int(data.get("coal_strike_days_left", 0))
+	smog_storm_days_left = int(data.get("smog_storm_days_left", 0))
+	_last_event_day = int(data.get("last_event_day", -MIN_DAYS_BETWEEN))
+	_sim.coal_output_factor = STRIKE_OUTPUT_FACTOR if coal_strike_days_left > 0 else 1.0
+	_smog.clearing_paused = smog_storm_days_left > 0
+	status_changed.emit()

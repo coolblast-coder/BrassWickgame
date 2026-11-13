@@ -46,6 +46,9 @@ const SMOGGY_FOOD_FACTOR := 0.5
 ## Airship Docks never sell Coal the city holds below this.
 const TRADE_COAL_RESERVE := 100
 
+## Room for each stockpile before any Warehouse is built.
+const BASE_STORAGE := 300
+
 ## Crowns to repair one broken building by hand.
 const REPAIR_COST := 20
 ## Daily chance that a machine which ran today breaks down: the base, plus a
@@ -98,6 +101,7 @@ func _init(grid: CityGrid, city: CityState, smog: SmogMap) -> void:
 	_city = city
 	_smog = smog
 	_city.tier_reached.connect(_on_tier_reached)
+	_city.storage_capacity = BASE_STORAGE
 
 
 ## A new tier brings a new need; the city gets a small stock to start with.
@@ -193,18 +197,26 @@ func _house_citizens(homes: Array[Building], population: int, capacity: int) -> 
 			unhoused -= 1
 
 
-## Half the population works. Workers fill connected, unbroken workplaces in
-## the order the buildings were placed; later ones go short when workers run
-## out.
+## Half the population works. Workers fill connected, unbroken workplaces
+## that are switched on: essential ones (Food, Coal, Water, Steam) first,
+## then the rest, each group in the order the buildings were placed. The
+## last ones go short when workers run out.
 func _assign_workers() -> void:
 	@warning_ignore("integer_division")
 	var total := _city.population / 2
 	var available := total
 	for building in _grid.all_buildings:
 		building.staff = 0
-		if building.def.workers > 0 and building.road_access and not building.broken:
-			building.staff = mini(building.def.workers, available)
-			available -= building.staff
+	# Essential buildings first, then the rest; within each group, in the
+	# order they were placed.
+	for essential: bool in [true, false]:
+		for building in _grid.all_buildings:
+			var def := building.def
+			if def.essential != essential or def.workers <= 0:
+				continue
+			if building.road_access and not building.broken and not building.paused:
+				building.staff = mini(def.workers, available)
+				available -= building.staff
 	_city.workers_total = total
 	_city.workers_employed = total - available
 
@@ -229,6 +241,12 @@ func _run_economy() -> void:
 	var traders: Array[Building] = []
 	_steam_pool = _city.steam
 	_unpowered = 0
+	# Opening stocks, for the day's ledger.
+	var coal_start := _city.coal
+	var water_start := _city.water
+	var goods_start := _city.goods
+	var steam_start := _city.steam
+	var coal_sold := 0
 
 	for building in _grid.all_buildings:
 		var def := building.def
@@ -248,7 +266,7 @@ func _run_economy() -> void:
 			# Produces nothing and burns no Coal until repaired.
 			broken += 1
 			continue
-		if not building.road_access:
+		if not building.road_access or building.paused:
 			continue
 		if def.trade_coal > 0:
 			# Trades after every home and machine has its Coal, further down.
@@ -300,6 +318,7 @@ func _run_economy() -> void:
 		var sold := mini(roundi(dock.def.trade_coal * staffing), spare)
 		if sold > 0:
 			coal_pool -= sold
+			coal_sold += sold
 			dock.crowns_made = roundi(float(sold) * dock.def.trade_crowns / dock.def.trade_coal)
 			crowns_made += dock.crowns_made
 
@@ -362,6 +381,63 @@ func _run_economy() -> void:
 	_city.hungry_citizens = maxi(0, food_needed - food_available)
 	_city.cold_homes = cold_homes
 	_city.stopped_machines = stopped_machines
+
+	# Nothing can be kept beyond what the city has room to store.
+	var room := BASE_STORAGE
+	for building in _grid.all_buildings:
+		if building.road_access:
+			room += building.def.storage
+	_city.storage_capacity = room
+	var coal_lost := maxi(0, _city.coal - room)
+	var food_lost := maxi(0, _city.food - room)
+	var water_lost := maxi(0, _city.water - room)
+	var goods_lost := maxi(0, _city.goods - room)
+	var steam_lost := maxi(0, _city.steam - room)
+	_city.coal = mini(_city.coal, room)
+	_city.food = mini(_city.food, room)
+	_city.water = mini(_city.water, room)
+	_city.goods = mini(_city.goods, room)
+	_city.steam = mini(_city.steam, room)
+
+	# The day's ledger: where each stockpile's change came from.
+	var coal_dug := 0
+	for building in _grid.all_buildings:
+		coal_dug += building.coal_made
+	var food_eaten := mini(food_needed, food_available)
+	var water_drunk := mini(water_needed, water_available)
+	var goods_used := mini(goods_needed, goods_available)
+	_city.ledger = {
+		&"crowns": _ledger_lines([
+			["Taxes", tax], ["Earned by buildings", crowns_made], ["Upkeep", -upkeep]]),
+		&"coal": _ledger_lines([
+			["Dug", coal_dug],
+			["Burned by homes and machines", -(coal_start + coal_dug - coal_sold - coal_pool)],
+			["Sold", -coal_sold], ["Lost, no room", -coal_lost]]),
+		&"food": _ledger_lines([
+			["Grown", food_made], ["Eaten by citizens", -food_eaten],
+			["Used by Taverns", -(food_available - food_eaten - food_left)],
+			["Lost, no room", -food_lost]]),
+		&"water": _ledger_lines([
+			["Pumped", water_available - water_start], ["Drunk by citizens", -water_drunk],
+			["Lost, no room", -water_lost]]),
+		&"goods": _ledger_lines([
+			["Made", goods_available - goods_start], ["Taken by residents", -goods_used],
+			["Lost, no room", -goods_lost]]),
+		&"steam": _ledger_lines([
+			["Raised", steam_made], ["Used by buildings", -(steam_start - _steam_pool)],
+			["Lost, no room", -steam_lost]]),
+	}
+
+
+## Ledger lines for the entries that are not zero. Each entry is a label and
+## a signed amount.
+func _ledger_lines(entries: Array) -> PackedStringArray:
+	var lines := PackedStringArray()
+	for entry: Array in entries:
+		var amount: int = entry[1]
+		if amount != 0:
+			lines.append("%s: %+d" % [entry[0], amount])
+	return lines
 
 
 ## Work out what one running building made today and record it on the
