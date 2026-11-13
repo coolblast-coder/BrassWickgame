@@ -967,8 +967,13 @@ static func get_material(color: Color, metallic: float = 0.0) -> StandardMateria
 	return mat
 
 
+## Set how brightly lit windows glow; DayNight raises it after dark.
+static func set_window_glow(energy: float) -> void:
+	get_glow_material(WINDOW_GLOW).emission_energy_multiplier = energy
+
+
 ## Shared, cached material that glows faintly in its own colour, for lit
-## windows. Do not modify the returned material.
+## windows. Do not modify the returned material (use set_window_glow()).
 static func get_glow_material(color: Color) -> StandardMaterial3D:
 	var key := "glow|%s" % color.to_html()
 	if _materials.has(key):

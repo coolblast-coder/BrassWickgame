@@ -41,6 +41,11 @@ func _ready() -> void:
 	material_override = material
 
 
+## The hills' ground material, so the seasons can recolour it.
+func ground_material() -> ShaderMaterial:
+	return material_override as ShaderMaterial
+
+
 ## Ground height at a world position: zero on the map and just around it,
 ## rising into rolling hills further out.
 func height_at(x: float, z: float) -> float:

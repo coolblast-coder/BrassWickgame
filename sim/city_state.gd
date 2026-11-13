@@ -53,6 +53,13 @@ var steam: int = 0:
 		steam = value
 		changed.emit()
 
+## The current day, counting from 1. Kept in step with the clock by CitySim,
+## so that things holding only the city (HUD, advisor) know the season.
+var day: int = 1:
+	set(value):
+		day = value
+		changed.emit()
+
 ## The most the city can keep of each of Coal, Food, Water, Goods and Steam.
 ## Anything above it at the end of a day is lost. Set by CitySim.
 var storage_capacity: int = 0:

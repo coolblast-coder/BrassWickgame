@@ -29,6 +29,9 @@ var _woodland := FastNoiseLite.new()
 ## Map trees still standing: tile -> [MultiMesh, instance index].
 var _map_trees: Dictionary[Vector2i, Array] = {}
 var _dirty: bool = false
+## This node's own materials, by the colour they started with, so foliage can
+## change colour with the seasons without touching anything else.
+var _materials: Dictionary[Color, StandardMaterial3D] = {}
 ## Tiles whose tree has been cleared, for saving.
 var _cleared: Array[Vector2i] = []
 
@@ -211,7 +214,23 @@ func _add_surface(mesh: ArrayMesh, shape: Mesh, y: float, color: Color) -> void:
 	tool.append_from(shape, 0, Transform3D(Basis.IDENTITY, Vector3(0.0, y, 0.0)))
 	tool.commit(mesh)
 	mesh.surface_set_material(mesh.get_surface_count() - 1,
-			BuildingMeshFactory.get_material(color))
+			_material(color))
+
+
+func _material(color: Color) -> StandardMaterial3D:
+	if not _materials.has(color):
+		var material := StandardMaterial3D.new()
+		material.albedo_color = color
+		material.roughness = 0.9
+		_materials[color] = material
+	return _materials[color]
+
+
+## Recolour the leafy trees, the bushes and the pines.
+func set_foliage(leaf: Color, bush: Color, pine: Color) -> void:
+	_material(LEAF_COLOR).albedo_color = leaf
+	_material(BUSH_COLOR).albedo_color = bush
+	_material(PINE_COLOR).albedo_color = pine
 
 
 func _cone(radius: float, height: float) -> CylinderMesh:

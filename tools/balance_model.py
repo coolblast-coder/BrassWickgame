@@ -12,6 +12,12 @@ Tenements first, then Townhouses, rather than in placement order. The
 player never switches buildings off. Stockpiles are limited as in the game,
 and the player adds Warehouses to hold about three days of Food.
 
+Seasons are modelled, but poorly judged: getting through winter depends on
+stocking up beforehand, and the scripted player cannot plan. Its results
+with seasons swing from a quarter to all games lost on small changes to its
+habits, so they say little about whether the season numbers are fair. Wind
+is not modelled, because smog is not.
+
 A scripted player builds once per day. Three kinds are compared:
   naive   pays for every repair; spends freely from day one
   lazy    saves for a first Market; pays for repairs only until the city
@@ -50,6 +56,14 @@ P = dict(
     goods_tier=2, citizens_per_goods=10, goods_grant=40,
     steam_tier=3, steam_grant=60,
     storage_base=300, storage_per_warehouse=500,  # limit on every stockpile
+    # Seasons, in order from day 1: spring, summer, autumn, winter.
+    season_days=12,
+    season_food=(1.0, 1.0, 1.25, 0.75),      # Glasshouse output
+    season_home_coal=(1, 1, 1, 2),           # Coal to heat a home
+    season_water=(1.0, 1.25, 1.0, 1.0),      # citizens' Water need
+    season_tier=1,          # tier from which the seasons have any effect
+    winter_margin=1.2,      # surplus of Food output a planning player builds
+    plans_for_winter=False, # True: scripted player overbuilds farms and pits
     homes_per_tea=4,      # homes one Tea Garden can cover (layout guess)
     homes_per_tavern=6,   # homes one Tavern can cover (layout guess)
     machines_per_yard=10, # machines one Mechanic's Yard can cover (layout guess)
@@ -125,6 +139,10 @@ class City:
     def townhouse_residents(self):
         cap = self.capacity
         return self.pop * self.townhouses * PLAIN["townhouse"][1] // cap if cap else 0
+
+    def season(self, day=None):
+        day = self.day if day is None else day
+        return ((max(day, 1) - 1) // self.p["season_days"]) % 4
 
     def storage(self):
         return self.p["storage_base"] + self.warehouses * self.p["storage_per_warehouse"]
@@ -234,10 +252,14 @@ class City:
                 clock_runs = False
         if p["fuel_food_first"]:
             machines.sort(key=lambda w: PRIORITY[w["kind"]])
-        warm_tenements = min(self.tenements, pool)
-        pool -= warm_tenements
-        warm_townhouses = min(self.townhouses, pool // PLAIN["townhouse"][2])
-        pool -= warm_townhouses * PLAIN["townhouse"][2]
+        # Before the city reaches `season_tier` every season is like spring.
+        season = self.season() if self.tier >= p["season_tier"] else 0
+        food_factor = p["season_food"][season]
+        heat = p["season_home_coal"][season]
+        warm_tenements = min(self.tenements, pool // (PLAIN["tenement"][2] * heat))
+        pool -= warm_tenements * PLAIN["tenement"][2] * heat
+        warm_townhouses = min(self.townhouses, pool // (PLAIN["townhouse"][2] * heat))
+        pool -= warm_townhouses * PLAIN["townhouse"][2] * heat
         cold = self.homes - warm_tenements - warm_townhouses
         for w in machines:
             kind = w["kind"]
@@ -246,7 +268,7 @@ class City:
                 pool -= burn
                 share = w["staff"] / need
                 w["ran"] = share > 0
-                food_made += round(f * share)
+                food_made += round(f * share * food_factor)
                 crowns_made += round(cr * share)
                 water_made += round(WATER_OUT.get(kind, 0) * share)
                 goods_made += round(GOODS_OUT.get(kind, 0) * share)
@@ -271,7 +293,8 @@ class City:
                 open_taverns += 1
 
         water_have = self.water + water_made
-        water_need = math.ceil(pop / p["citizens_per_water"]) if self.tier >= p["water_tier"] else 0
+        water_need = math.ceil(pop / p["citizens_per_water"] * p["season_water"][season]) \
+            if self.tier >= p["water_tier"] else 0
         thirsty = min(pop, max(0, water_need - water_have) * p["citizens_per_water"])
         self.water = max(0, water_have - water_need)
 
@@ -382,15 +405,27 @@ class City:
             # With too few workers for the essential buildings, house more
             # before anything else. (This mattered most when staffing went
             # purely by placement order; see the staff_priority variant.)
+            # A player who plans for winter builds enough Glasshouses and
+            # Coal Pits to get through it without relying on stock; one who
+            # does not sizes them for today's season.
+            if p["plans_for_winter"]:
+                farm_yield = 1.0 / p["winter_margin"]
+                winter_heat = (max(p["season_home_coal"]) - 1) * (self.tenements + 2 * self.townhouses)
+            else:
+                farm_yield = p["season_food"][self.season(self.day + 1)]
+                winter_heat = (p["season_home_coal"][self.season(self.day + 1)] - 1) \
+                    * (self.tenements + 2 * self.townhouses)
+            water_need *= max(p["season_water"]) if p["plans_for_winter"] \
+                else p["season_water"][self.season(self.day + 1)]
             short_staffed = any(not w["broken"] and w["staff"] < DEFS[w["kind"]][1]
                                 and w["kind"] in ESSENTIAL for w in self.work)
             if self.homes == 0:
                 ok = self.buy("tenement")
             elif short_staffed and idle <= 0 and self.pop >= 0.8 * self.capacity and self.unrest < 50:
                 ok = self.buy("tenement")
-            elif g * 20 < food_need and self.food < 3 * max(self.pop, 10):
+            elif g * 20 * farm_yield < food_need and self.food < 3 * max(self.pop, 10):
                 ok = self.buy("glasshouse")
-            elif pit * 12 < 1.3 * coal_need + 2 and self.coal < 8 * coal_need + 30:
+            elif pit * 12 < 1.3 * (coal_need + winter_heat) + 2 and self.coal < 8 * coal_need + 30:
                 ok = self.buy("pit")
             elif pump * 30 < water_need and self.water < 6 * water_need:
                 ok = self.buy("pump")
@@ -464,6 +499,9 @@ if __name__ == "__main__":
     if which == "base":
         games = int(sys.argv[2]) if len(sys.argv) > 2 else 300
         report("current values", games=games)
+        report("no seasons", dict(season_food=(1.0,) * 4, season_home_coal=(1,) * 4,
+                                  season_water=(1.0,) * 4), games=games)
+        report("player overbuilds for winter", dict(plans_for_winter=True), games=games)
         report("no storage limit", dict(storage_base=10 ** 9), games=games)
         report("staffing in placement order", dict(staff_priority=False), games=games)
         report("upkeep 1 at every tier", dict(upkeep_by_tier=(1, 1, 1, 1)), games=games)

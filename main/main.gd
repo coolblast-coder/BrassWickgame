@@ -33,6 +33,12 @@ var _paused_by_menu: bool = false
 @onready var _vegetation: Vegetation = $Vegetation
 @onready var _sound: SoundPlayer = $Sound
 @onready var _camera_rig: CameraRig = $CameraRig
+@onready var _season_view: SeasonView = $SeasonView
+@onready var _wind_vane: WindVane = $WindVane
+@onready var _day_night: DayNight = $DayNight
+@onready var _sun: DirectionalLight3D = $Sun
+@onready var _world_environment: WorldEnvironment = $WorldEnvironment
+@onready var _ground: MeshInstance3D = $GridView
 
 
 func _ready() -> void:
@@ -74,6 +80,12 @@ func _ready() -> void:
 	grid.buildings_changed.connect(func() -> void: _road_access_dirty = true)
 	_place_town_hall()
 	_vegetation.setup(grid, _hills)
+	var ground_materials: Array[ShaderMaterial] = [
+		_ground.get_surface_override_material(0) as ShaderMaterial, _hills.ground_material()]
+	_season_view.setup(ground_materials, _vegetation)
+	_wind_vane.position = grid.town_hall.position
+	_day_night.setup(_sun, _world_environment.environment, _clock)
+	_show_season(true)
 	if not SaveGame.pending.is_empty():
 		_apply_save(SaveGame.pending)
 		SaveGame.pending = {}
@@ -97,6 +109,14 @@ func _on_cell_hovered(cell: Vector2i, in_bounds: bool) -> void:
 func _on_overlay_mode_changed(_mode: OverlayView.Mode) -> void:
 	_hud.build_bar.set_overlay_name(_overlay.mode_name())
 	_hud.show_legend(_overlay.legend())
+
+
+## Dress the landscape for the clock's season and turn the wind to match.
+func _show_season(instant: bool) -> void:
+	var season := Seasons.of_day(_clock.day)
+	_season_view.show_season(season, instant)
+	smog.wind = Seasons.WIND[season]
+	_wind_vane.set_wind(smog.wind, instant)
 
 
 ## The game stands still while the menu is open.
@@ -165,6 +185,8 @@ func _apply_save(data: Dictionary) -> void:
 	_events.from_save(data.get("events", {}))
 	history.from_save(data.get("history", {}))
 	_clock.from_save(data.get("clock", {}))
+	city.day = _clock.day
+	_show_season(true)
 	_refresh_road_access()
 	_hud.sync_after_load()
 	_hud.show_notice("Game loaded", "Day %d. Paused: press Space to carry on." % _clock.day)
@@ -179,8 +201,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			load_game()
 			return
 	# Development aids: F1 to F4 fire each event at once, to test them without
-	# waiting for the dice, and F6 unlocks the next city tier. Not in exported
-	# builds.
+	# waiting for the dice, F6 unlocks the next city tier, and F7 skips to the
+	# next season. Not in exported builds.
 	if not OS.is_debug_build() or _game_over:
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
@@ -193,6 +215,13 @@ func _unhandled_input(event: InputEvent) -> void:
 				_events.fire(CityEvents.Type.SMOG_STORM, _clock.day)
 			KEY_F4:
 				_events.fire(CityEvents.Type.AIRSHIP_TRADER, _clock.day)
+			KEY_F7:
+				# Skip to the first day of the next season.
+				_clock.day += Seasons.days_until_next(_clock.day)
+				city.day = _clock.day
+				_show_season(false)
+				# Refreshes the day shown in the top bar.
+				_clock.state_changed.emit()
 			KEY_F6:
 				# Jump to the next city tier without growing into it.
 				if city.tier + 1 < CityState.TIER_POPULATION.size():
@@ -208,12 +237,21 @@ func _on_day_ended(day: int) -> void:
 		_refresh_road_access()
 	var broken_before := _count_broken()
 	_event_sounded = false
-	_sim.run_day()
+	_sim.run_day(day)
 	history.record(city)
 	if city.days_at_max_unrest >= CitySim.WALKOUT_DAYS:
 		_end_game(day)
 		return
 	_events.day_passed(day)
+	# Announce a change of season, once the seasons matter.
+	var season := Seasons.of_day(day + 1)
+	if season != Seasons.of_day(day):
+		_show_season(false)
+		var news := "The wind has turned: watch where the smog goes."
+		if city.tier >= Seasons.FROM_TIER:
+			news = Seasons.EFFECTS[season] + "\n" + news
+		_hud.show_notice("%s has come" % Seasons.NAMES[season], news)
+		_on_event_sounded("", "")
 	# One sound per day at most: an event's whistle, else a new breakdown,
 	# else the day bell.
 	if _event_sounded:

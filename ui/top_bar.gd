@@ -37,7 +37,8 @@ func _ready() -> void:
 	add_child(_row)
 
 	_day_label = Label.new()
-	_day_label.custom_minimum_size = Vector2(64.0, 0.0)
+	_day_label.custom_minimum_size = Vector2(150.0, 0.0)
+	_day_label.mouse_filter = Control.MOUSE_FILTER_PASS
 	_row.add_child(_day_label)
 
 	_day_progress = ProgressBar.new()
@@ -91,7 +92,15 @@ func _process(_delta: float) -> void:
 
 
 func _refresh_clock() -> void:
-	_day_label.text = "Day %d" % _clock.day
+	var day := _clock.day
+	_day_label.text = "Day %d  %s" % [day, Seasons.label(day)]
+	var tooltip := "%s: %s" % [Seasons.NAMES[Seasons.of_day(day)], Seasons.EFFECTS[Seasons.of_day(day)]]
+	var next := Seasons.next_after(day)
+	tooltip += "\n%s in %d days: %s" % [Seasons.NAMES[next], Seasons.days_until_next(day), Seasons.EFFECTS[next]]
+	tooltip += "\nThe brass arrow above the Town Hall shows the wind, which carries smog."
+	if _city != null and _city.tier < Seasons.FROM_TIER:
+		tooltip += "\n\nThe seasons have no effect until the city is a %s." % CityState.TIER_NAMES[Seasons.FROM_TIER]
+	_day_label.tooltip_text = tooltip
 	_pause_button.text = "Resume" if _clock.paused else "Pause"
 	_speed_button.text = "%dx" % _clock.speed
 

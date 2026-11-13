@@ -83,6 +83,8 @@ const UNREST_BASELINE_CALM := 3.0  # flat, every day
 const UNREST_TEA_GARDEN := 4.0     # by share of homes near a Tea Garden
 const UNREST_TAVERN := 3.0         # by share of homes near an open Tavern
 
+## The season whose rules apply to the day being simulated.
+var _season: Seasons.Season = Seasons.Season.SPRING
 ## Steam still unclaimed today; only meaningful while _run_economy() runs.
 var _steam_pool: int = 0
 ## Buildings that went without Steam today.
@@ -128,7 +130,10 @@ func _take_steam(building: Building) -> bool:
 	return false
 
 
-func run_day() -> void:
+## Simulate one day. `day` is the day that is ending.
+func run_day(day: int) -> void:
+	_season = Seasons.in_effect(day, _city.tier)
+	_smog.wind = Seasons.WIND[Seasons.of_day(day)]
 	var crowns_before := _city.crowns
 	var coal_before := _city.coal
 	var food_before := _city.food
@@ -152,6 +157,7 @@ func run_day() -> void:
 	_city.water_change = _city.water - water_before
 	_city.goods_change = _city.goods - goods_before
 	_city.steam_change = _city.steam - steam_before
+	_city.day = day + 1
 	_city.changed.emit()
 
 
@@ -289,9 +295,11 @@ func _run_economy() -> void:
 			machines.append(building)
 
 	var cold_homes := 0
+	# Homes burn more Coal in winter.
+	var heating := Seasons.HOME_COAL_FACTOR[_season]
 	for home in homes:
-		if coal_pool >= home.def.coal_per_day:
-			coal_pool -= home.def.coal_per_day
+		if coal_pool >= home.def.coal_per_day * heating:
+			coal_pool -= home.def.coal_per_day * heating
 			home.ran_today = true
 		else:
 			home.fuelled = false
@@ -345,7 +353,8 @@ func _run_economy() -> void:
 		water_available += building.water_made
 	var water_needed := 0
 	if _city.tier >= WATER_TIER:
-		water_needed = ceili(float(_city.population) / CITIZENS_PER_WATER)
+		water_needed = ceili(float(_city.population) / CITIZENS_PER_WATER
+				* Seasons.WATER_FACTOR[_season])
 	_city.water = maxi(0, water_available - water_needed)
 	_city.thirsty_citizens = mini(_city.population,
 			maxi(0, water_needed - water_available) * CITIZENS_PER_WATER)
@@ -446,7 +455,7 @@ func _ledger_lines(entries: Array) -> PackedStringArray:
 func _produce(building: Building) -> void:
 	var def := building.def
 	var staffing := _staffing(building)
-	var growth := SMOGGY_FOOD_FACTOR if building.smoggy else 1.0
+	var growth := Seasons.FOOD_FACTOR[_season] * (SMOGGY_FOOD_FACTOR if building.smoggy else 1.0)
 	building.ran_today = staffing > 0.0
 	building.food_made = roundi(def.food_output * staffing * growth)
 	building.coal_made = roundi(def.coal_output * staffing * coal_output_factor)

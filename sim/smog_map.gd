@@ -1,9 +1,9 @@
 class_name SmogMap
 extends RefCounted
 ## Smog as a value per tile, from 0 to MAX. Updated once per day by CitySim:
-## buildings that ran add smog around themselves, then it clears a little
-## everywhere and more near Tea Gardens and working Smog Scrubbers. All
-## constants are tuning values.
+## buildings that ran add smog around themselves, the wind carries some of
+## it downwind, then it clears a little everywhere and more near Tea Gardens
+## and working Smog Scrubbers. All constants are tuning values.
 
 ## Emitted after each daily update.
 signal updated
@@ -17,9 +17,16 @@ const SMOGGY_THRESHOLD := 30.0
 const SPREAD_RADIUS := 3
 ## Natural clearing per tile per day.
 const CLEAR_PER_DAY := 2.0
+## Share of each tile's smog that the wind carries one tile downwind each
+## day. With no drift a single Brassworks slowly smothers its surroundings;
+## with it, smog thins near the source and trails off downwind instead.
+const DRIFT_SHARE := 0.2
 
 ## Set during a Smog Storm: nothing clears, not even near Tea Gardens.
 var clearing_paused: bool = false
+## The way the wind blows, as a step on the grid; zero for still air.
+## Set by CitySim from the season.
+var wind: Vector2i = Vector2i.ZERO
 
 var _values: PackedFloat32Array = PackedFloat32Array()
 
@@ -48,6 +55,8 @@ func step(buildings: Array[Building]) -> void:
 	for building in buildings:
 		if building.def.smog_per_day > 0 and building.ran_today:
 			_emit_around(building.footprint_rect(), building.def.smog_per_day)
+
+	_drift()
 
 	if not clearing_paused:
 		for i in _values.size():
@@ -80,6 +89,23 @@ func from_save(data: Array) -> void:
 	for i in data.size():
 		_values[i] = float(data[i])
 	updated.emit()
+
+
+## The wind carries a share of every tile's smog one tile downwind. Smog
+## blown off the edge of the map is gone.
+func _drift() -> void:
+	if wind == Vector2i.ZERO:
+		return
+	var before := _values.duplicate()
+	for y in CityGrid.SIZE.y:
+		for x in CityGrid.SIZE.x:
+			var carried := before[_index(x, y)] * DRIFT_SHARE
+			if carried <= 0.0:
+				continue
+			_values[_index(x, y)] -= carried
+			var to := Vector2i(x, y) + wind
+			if CityGrid.is_in_bounds(to):
+				_values[_index(to.x, to.y)] += carried
 
 
 func _emit_around(source: Rect2i, amount: float) -> void:

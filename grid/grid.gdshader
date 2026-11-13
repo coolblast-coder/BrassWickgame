@@ -9,6 +9,10 @@ uniform vec3 grass_color : source_color = vec3(0.29, 0.36, 0.19);
 uniform vec3 dry_grass_color : source_color = vec3(0.45, 0.42, 0.25);
 uniform vec3 dirt_color : source_color = vec3(0.37, 0.30, 0.22);
 uniform vec3 line_color : source_color = vec3(0.12, 0.11, 0.08);
+uniform vec3 snow_color : source_color = vec3(0.9, 0.92, 0.95);
+// How much of the ground lies under snow, from 0 (none) to 1 (all of it).
+// In between, the snow lies in patches.
+uniform float snow_amount : hint_range(0.0, 1.0) = 0.0;
 // How strongly the tile lines show, from 0 (hidden) to 1 (solid).
 uniform float line_strength : hint_range(0.0, 1.0) = 0.35;
 uniform float tile_size = 2.0;
@@ -72,6 +76,10 @@ void fragment() {
 	float grain = noise(pos * 9.0);
 	color *= 0.88 + 0.24 * mottle;
 	color *= 1.0 + (grain - 0.5) * 0.3 * closeness;
+
+	// Snow, settling in patches first and thinning the same way.
+	float cover = clamp(snow_amount * 1.3 - (1.0 - snow_amount) * fbm(pos / 8.0) * 1.4, 0.0, 1.0);
+	color = mix(color, snow_color * (0.93 + 0.07 * mottle), cover);
 
 	// Distance to the nearest tile boundary, in tiles.
 	vec2 dist = abs(fract(coord - 0.5) - 0.5);

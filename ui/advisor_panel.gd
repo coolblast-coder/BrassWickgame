@@ -14,6 +14,8 @@ const MAX_LINES := 6
 const REFRESH_SECONDS := 1.0
 ## Share of workers without a job above which the advisor mentions it.
 const IDLE_SHARE_WORTH_MENTIONING := 0.2
+## How many days ahead the advisor warns of winter and summer.
+const SEASON_WARNING_DAYS := 4
 
 var _grid: CityGrid
 var _city: CityState
@@ -95,6 +97,16 @@ func _gather() -> Array:
 	var advice: Array = []
 	var city := _city
 
+	# A warning in the last days before a hard season.
+	if city.tier >= Seasons.FROM_TIER:
+		var days_left := Seasons.days_until_next(city.day)
+		var next := Seasons.next_after(city.day)
+		if days_left <= SEASON_WARNING_DAYS and next == Seasons.Season.WINTER:
+			advice.append(["Winter in %s: stock Food and Coal, add Warehouses." % _count(
+					days_left, "day", "days"), null])
+		elif days_left <= SEASON_WARNING_DAYS and next == Seasons.Season.SUMMER:
+			advice.append(["Summer in %s: citizens will need more Water." % _count(
+					days_left, "day", "days"), null])
 	if city.days_at_max_unrest > 0:
 		advice.append(["Unrest is at 100! Fix the causes in the Unrest tooltip, fast.", null])
 	if city.crowns < 0:

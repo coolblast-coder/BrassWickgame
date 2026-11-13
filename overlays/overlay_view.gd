@@ -108,7 +108,7 @@ func mode_name() -> String:
 func legend() -> String:
 	match mode:
 		Mode.SMOG:
-			return "Smog overlay\nDarker brown: more smog"
+			return "Smog overlay\nDarker brown: more smog\nSmog drifts the way the brass arrow\nabove the Town Hall points"
 		Mode.UNREST:
 			return "Unrest overlay\nRed: no road access\nYellow: broken down\n" \
 					+ "Orange: no Coal, Steam or (Tavern) Food\nBlue: cold home\n" \
