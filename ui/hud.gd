@@ -12,11 +12,18 @@ extends CanvasLayer
 @onready var _info_panel: InfoPanel = $InfoPanel
 @onready var _event_banner: EventBanner = $EventBanner
 @onready var _game_over_panel: GameOverPanel = $GameOverPanel
+@onready var _card: BuildingCard = $BuildingCard
 
 var _city: CityState
 var _events: CityEvents
 ## The building whose details are shown; null when the panel is closed.
 var _selected: Building
+## What the mouse is over, for the hover card: a build-menu button's
+## building, or a building on the map.
+var _hovered_def: BuildingDef
+var _hovered_building: Building
+## True while no build or demolish tool is in hand.
+var _idle: bool = true
 
 
 ## The Repair button in the info panel was clicked.
@@ -30,6 +37,7 @@ signal restart_pressed
 func _ready() -> void:
 	_info_panel.repair_pressed.connect(func() -> void: repair_pressed.emit())
 	_game_over_panel.restart_pressed.connect(func() -> void: restart_pressed.emit())
+	build_bar.slot_hovered.connect(_on_slot_hovered)
 
 
 ## Cover the HUD with the end screen and the final score.
@@ -54,6 +62,29 @@ func bind_events(events: CityEvents) -> void:
 	_events = events
 	events.event_fired.connect(_event_banner.show_event)
 	events.status_changed.connect(_refresh_warnings)
+
+
+func _on_slot_hovered(index: int) -> void:
+	_hovered_def = BuildingCatalog.all()[index] if index >= 0 else null
+	_refresh_card()
+
+
+## Tell the HUD which building on the map the mouse is over; null for none.
+func show_hover(building: Building) -> void:
+	_hovered_building = building
+	_refresh_card()
+
+
+## The hover card describes a build-menu button first; failing that, the
+## building under the mouse, but only while no tool is in hand.
+func _refresh_card() -> void:
+	if _hovered_def != null:
+		_card.show_def(_hovered_def)
+	elif _idle and is_instance_valid(_hovered_building) \
+			and not _hovered_building.is_queued_for_deletion():
+		_card.show_building(_hovered_building)
+	else:
+		_card.hide()
 
 
 ## Show the info panel for `building`; pass null to close it.
@@ -102,6 +133,8 @@ func show_cell(cell: Vector2i, in_bounds: bool) -> void:
 func show_build_mode(mode: BuildController.Mode, def: BuildingDef) -> void:
 	build_bar.set_selected(def if mode == BuildController.Mode.PLACING else null)
 	build_bar.set_demolishing(mode == BuildController.Mode.DEMOLISHING)
+	_idle = mode == BuildController.Mode.IDLE
+	_refresh_card()
 	match mode:
 		BuildController.Mode.PLACING:
 			if def.is_road:

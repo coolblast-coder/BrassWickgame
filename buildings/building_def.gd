@@ -10,11 +10,19 @@ enum Style { TENEMENT, GLASSHOUSE, COAL_PIT, BRASSWORKS, MECHANIC_YARD, TEA_GARD
 		TOWNHOUSE, MARKET, TAVERN, SMOG_SCRUBBER,
 		AIRSHIP_DOCK, CLOCKTOWER }
 
+## Which group of the build menu this building is listed under. New
+## categories go at the end, and need a name in BuildingCatalog.
+enum Category { INFRASTRUCTURE, HOUSING, SUPPLY, INDUSTRY, SERVICES }
+
 @export var id: StringName
 @export var display_name: String = ""
+## A sentence or two for the build menu's hover card: what it is for and
+## what to watch out for. Numbers are added to the card from the fields below.
+@export_multiline var description: String = ""
 ## Size in tiles before rotation: x along world +X, y along world +Z.
 @export var footprint: Vector2i = Vector2i(1, 1)
 @export var style: Style = Style.TENEMENT
+@export var category: Category = Category.INFRASTRUCTURE
 ## Main colour of the placeholder model.
 @export var color: Color = Color.WHITE
 ## Roads carry the connection to the Town Hall and can be laid by dragging.

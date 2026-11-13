@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://ui/info_panel.gd" id="4_info"]
 [ext_resource type="Script" path="res://ui/event_banner.gd" id="5_event"]
 [ext_resource type="Script" path="res://ui/game_over_panel.gd" id="6_over"]
+[ext_resource type="Script" path="res://ui/building_card.gd" id="7_card"]
 
 [node name="HUD" type="CanvasLayer"]
 script = ExtResource("1_hud")
@@ -96,6 +97,19 @@ grow_vertical = 0
 mouse_filter = 2
 alignment = 1
 script = ExtResource("2_bar")
+
+[node name="BuildingCard" type="PanelContainer" parent="."]
+visible = false
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 12.0
+offset_top = -132.0
+offset_right = 332.0
+offset_bottom = -92.0
+grow_vertical = 0
+mouse_filter = 2
+script = ExtResource("7_card")
 
 [node name="GameOverPanel" type="ColorRect" parent="."]
 anchors_preset = 15

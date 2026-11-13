@@ -6,8 +6,10 @@
 script = ExtResource("1_def")
 id = &"glasshouse"
 display_name = "Glasshouse"
+description = "Grows Food under glass. Every citizen eats each day, and hunger is the fastest road to Unrest. Grows half as much in heavy smog."
 footprint = Vector2i(2, 3)
 style = 1
+category = 2
 color = Color(0.62, 0.8, 0.72, 1)
 cost = 80
 workers = 4

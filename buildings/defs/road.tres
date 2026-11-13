@@ -6,8 +6,10 @@
 script = ExtResource("1_def")
 id = &"road"
 display_name = "Road"
+description = "Connects buildings to the Town Hall. A building only works while a road touches one of its edges and leads back there."
 footprint = Vector2i(1, 1)
 style = 6
+category = 0
 color = Color(0.2, 0.19, 0.2, 1)
 is_road = true
 cost = 2

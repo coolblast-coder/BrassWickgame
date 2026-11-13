@@ -1,10 +1,10 @@
 class_name BuildingCatalog
 extends RefCounted
-## The list of buildable things, in build-bar order. The first KEYS_PER_ROW
-## are picked with keys 1 to 7 and sit on the lower row of the build bar; the
-## rest are picked with Shift + the number and sit on the upper row.
+## The list of buildable things. The build menu groups them by category and
+## lists each group in the order given here.
 
-const KEYS_PER_ROW := 7
+## Menu names of BuildingDef.Category, in the same order.
+const CATEGORY_NAMES: Array[String] = ["Roads", "Housing", "Food & Coal", "Industry", "Services"]
 
 const PATHS: Array[String] = [
 	"res://buildings/defs/road.tres",

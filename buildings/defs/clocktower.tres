@@ -6,8 +6,10 @@
 script = ExtResource("1_def")
 id = &"clocktower"
 display_name = "Clocktower"
+description = "A landmark the whole city is proud of. Lowers Unrest everywhere while a road reaches it."
 footprint = Vector2i(2, 2)
 style = 13
+category = 4
 color = Color(0.72, 0.62, 0.48, 1)
 cost = 500
 unique = true

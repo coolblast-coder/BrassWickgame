@@ -6,8 +6,10 @@
 script = ExtResource("1_def")
 id = &"coal_pit"
 display_name = "Coal Pit"
+description = "Digs the Coal that heats homes and drives machines. Keep homes and Glasshouses clear of its smog."
 footprint = Vector2i(3, 3)
 style = 2
+category = 2
 color = Color(0.24, 0.21, 0.19, 1)
 cost = 100
 workers = 6

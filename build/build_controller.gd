@@ -130,14 +130,6 @@ func _unhandled_input(event: InputEvent) -> void:
 				try_demolish()
 			else:
 				_select_at_cursor()
-	elif event is InputEventKey and event.pressed and not event.echo:
-		# Number keys 1 to 7 pick from the catalog, in build-bar order; with
-		# Shift held they pick from the second row.
-		var slot: int = event.physical_keycode - KEY_1
-		if slot >= 0 and slot < BuildingCatalog.KEYS_PER_ROW:
-			if event.shift_pressed:
-				slot += BuildingCatalog.KEYS_PER_ROW
-			select_slot(slot)
 
 
 ## Pick a building by its index in BuildingCatalog. Picking the one that is

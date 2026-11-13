@@ -29,6 +29,7 @@ var _game_over: bool = false
 
 func _ready() -> void:
 	_tile_cursor.cell_changed.connect(_hud.show_cell)
+	_tile_cursor.cell_changed.connect(_on_cell_hovered)
 	_build_controller.setup(grid, city, _tile_cursor, _buildings)
 	_build_controller.mode_changed.connect(_hud.show_build_mode)
 	_build_controller.selection_changed.connect(_hud.show_selection)
@@ -56,6 +57,15 @@ func _process(_delta: float) -> void:
 	if _road_access_dirty:
 		_road_access_dirty = false
 		_refresh_road_access()
+
+
+## Tell the HUD which building the mouse is over, for its hover card. Roads
+## are skipped: there are too many of them to be worth a card each.
+func _on_cell_hovered(cell: Vector2i, in_bounds: bool) -> void:
+	var building: Building = grid.building_at(cell) if in_bounds else null
+	if building != null and building.def.is_road:
+		building = null
+	_hud.show_hover(building)
 
 
 func _on_overlay_mode_changed(_mode: OverlayView.Mode) -> void:
@@ -98,6 +108,7 @@ func _end_game(days_survived: int) -> void:
 	_game_over = true
 	_clock.stop()
 	_build_controller.shut_down()
+	_hud.build_bar.enabled = false
 	_hud.show_game_over(city.peak_population, days_survived)
 
 

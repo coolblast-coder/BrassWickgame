@@ -6,8 +6,10 @@
 script = ExtResource("1_def")
 id = &"tenement"
 display_name = "Tenement"
+description = "Basic housing. Citizens move in a few at a time while Unrest is low. Needs Coal for heating; a cold home adds Unrest."
 footprint = Vector2i(2, 2)
 style = 0
+category = 1
 color = Color(0.56, 0.32, 0.27, 1)
 cost = 50
 housing = 10
