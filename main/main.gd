@@ -3,6 +3,8 @@ extends Node3D
 
 ## The logical map: which building stands on which tile.
 var grid := CityGrid.new()
+## What the ground is made of on each tile.
+var terrain := TerrainMap.new()
 ## The city's stockpiles: Crowns, Coal, Food, Population.
 var city := CityState.new()
 ## Smog per tile.
@@ -47,10 +49,18 @@ var _paused_by_event: bool = false
 
 
 func _ready() -> void:
+	# The ground comes first: everything else is placed on it. A loaded game
+	# brings its map's seed; a new city gets a fresh one.
+	var map_seed := SaveGame.new_map_seed()
+	if SaveGame.pending.has("map_seed"):
+		map_seed = int(SaveGame.pending["map_seed"])
+	terrain.generate(map_seed)
+	grid.terrain = terrain
 	_tile_cursor.cell_changed.connect(_hud.show_cell)
 	_tile_cursor.cell_changed.connect(_on_cell_hovered)
 	_build_controller.setup(grid, city, _tile_cursor, _buildings)
 	_build_controller.mode_changed.connect(_hud.show_build_mode)
+	_build_controller.ground_bonus_changed.connect(_hud.show_ground_bonus)
 	_build_controller.selection_changed.connect(_hud.show_selection)
 	_hud.repair_pressed.connect(_build_controller.repair_selected)
 	_hud.power_pressed.connect(_build_controller.toggle_selected_power)
@@ -77,7 +87,7 @@ func _ready() -> void:
 	_council.request_finished.connect(_on_request_finished)
 	_events = CityEvents.new(grid, city, _sim, smog)
 	_hud.bind_events(_events)
-	_overlay.setup(smog, grid)
+	_overlay.setup(smog, grid, _sim.land)
 	_overlay.mode_changed.connect(_on_overlay_mode_changed)
 	_hud.build_bar.overlay_pressed.connect(_overlay.cycle)
 	_walkers.setup(grid, city, _clock)
@@ -93,8 +103,12 @@ func _ready() -> void:
 	grid.buildings_changed.connect(func() -> void: _road_access_dirty = true)
 	_place_town_hall()
 	_vegetation.setup(grid, _hills)
-	var ground_materials: Array[ShaderMaterial] = [
-		_ground.get_surface_override_material(0) as ShaderMaterial, _hills.ground_material()]
+	var map_material := _ground.get_surface_override_material(0) as ShaderMaterial
+	map_material.set_shader_parameter("terrain_map", ImageTexture.create_from_image(terrain.to_image()))
+	map_material.set_shader_parameter("terrain_amount", 1.0)
+	_hud.bind_terrain(terrain)
+	_hud.game_menu.set_map_seed(terrain.map_seed)
+	var ground_materials: Array[ShaderMaterial] = [map_material, _hills.ground_material()]
 	_season_view.setup(ground_materials, _vegetation)
 	_wind_vane.position = grid.town_hall.position
 	_day_night.setup(_sun, _world_environment.environment, _clock)
@@ -184,6 +198,7 @@ func save_game() -> void:
 	for building in grid.all_buildings:
 		buildings.append(building.to_save())
 	var saved := SaveGame.write({
+		"map_seed": terrain.map_seed,
 		"clock": _clock.to_save(),
 		"city": city.to_save(),
 		"events": _events.to_save(),
@@ -222,7 +237,7 @@ func _apply_save(data: Dictionary) -> void:
 			continue
 		var origin := Vector2i(int(entry.get("x", 0)), int(entry.get("y", 0)))
 		var steps := int(entry.get("rotation", 0))
-		if not grid.can_place(Building.cells_for(def, origin, steps)):
+		if not grid.can_place(Building.cells_for(def, origin, steps), def):
 			continue
 		_build_controller.place_building(def, origin, steps).from_save(entry)
 	_vegetation.from_save(data.get("cleared_trees", []))

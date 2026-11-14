@@ -1,8 +1,9 @@
 class_name OverlayView
 extends MeshInstance3D
 ## A see-through sheet over the whole map, painted one pixel per tile.
-## O (or the HUD button) cycles the modes: none, smog, unrest.
+## O (or the HUD button) cycles the modes: none, smog, unrest, land value.
 ##
+## - Land value shows where homes would pay more tax (green) or less (red).
 ## - Smog shows how much smog lies on each tile.
 ## - Unrest shows where the trouble is: every building that is adding to
 ##   Unrest is ringed in a colour for its problem, and the areas Tea Gardens
@@ -10,7 +11,7 @@ extends MeshInstance3D
 
 signal mode_changed(mode: Mode)
 
-enum Mode { NONE, SMOG, UNREST }
+enum Mode { NONE, SMOG, UNREST, LAND }
 
 ## Height above the ground: over roads and yard slabs, under most roofs.
 const HEIGHT := 0.25
@@ -33,11 +34,18 @@ const TROUBLE_OPACITY := 0.9
 const TROUBLE_RING_OPACITY := 0.5
 ## The unrest view reads live building state, so it repaints on a timer.
 const UNREST_REPAINT_SECONDS := 0.25
+## The land value view is worked out afresh each time, so less often.
+const LAND_REPAINT_SECONDS := 1.0
+const LAND_GOOD_COLOR := Color(0.3, 0.85, 0.4)
+const LAND_POOR_COLOR := Color(0.95, 0.3, 0.2)
+## How far above or below ordinary a tile must be to draw at full opacity.
+const LAND_FULL_AT := 0.4
 
 var mode: Mode = Mode.NONE
 
 var _smog: SmogMap
 var _grid: CityGrid
+var _land: LandValueMap
 var _image: Image
 var _texture: ImageTexture
 var _repaint_wait: float = 0.0
@@ -66,14 +74,15 @@ func _ready() -> void:
 
 
 ## Called once by Main.
-func setup(smog: SmogMap, grid: CityGrid) -> void:
+func setup(smog: SmogMap, grid: CityGrid, land: LandValueMap) -> void:
 	_smog = smog
 	_grid = grid
+	_land = land
 	smog.updated.connect(_redraw)
 
 
 func _process(delta: float) -> void:
-	if mode != Mode.UNREST:
+	if mode != Mode.UNREST and mode != Mode.LAND:
 		return
 	_repaint_wait -= delta
 	if _repaint_wait <= 0.0:
@@ -100,6 +109,8 @@ func mode_name() -> String:
 			return "smog"
 		Mode.UNREST:
 			return "unrest"
+		Mode.LAND:
+			return "land value"
 		_:
 			return "none"
 
@@ -113,6 +124,10 @@ func legend() -> String:
 			return "Unrest overlay\nRed: no road access\nYellow: broken down\n" \
 					+ "Orange: no Coal, Steam or (Tavern) Food\nBlue: cold home\n" \
 					+ "Purple: smoggy home\nGreen: calmed by a Tea Garden or Tavern"
+		Mode.LAND:
+			return "Land value overlay\nGreen: homes here pay more tax\n" \
+					+ "Red: homes here pay less\nGardens, Markets, Taverns and the\n" \
+					+ "river raise it; industry and smog lower it"
 		_:
 			return ""
 
@@ -126,6 +141,9 @@ func _redraw() -> void:
 		Mode.UNREST:
 			_draw_unrest()
 			_repaint_wait = UNREST_REPAINT_SECONDS
+		Mode.LAND:
+			_draw_land()
+			_repaint_wait = LAND_REPAINT_SECONDS
 		_:
 			return
 	_texture.update(_image)
@@ -137,6 +155,22 @@ func _draw_smog() -> void:
 			var amount := _smog.get_at(Vector2i(x, y))
 			var opacity := clampf(amount / SMOG_FULL_AT, 0.0, 1.0) * MAX_OPACITY
 			_image.set_pixel(x, y, Color(SMOG_COLOR, opacity))
+
+
+func _draw_land() -> void:
+	_land.recompute(_grid, _smog)
+	for y in CityGrid.SIZE.y:
+		for x in CityGrid.SIZE.x:
+			var cell := Vector2i(x, y)
+			var above := _land.value_at(cell) - 1.0
+			# Nothing to say about ground nobody can live on.
+			var barren := _grid.terrain != null and not _grid.terrain.is_buildable(cell)
+			if is_zero_approx(above) or barren:
+				_image.set_pixel(x, y, CLEAR)
+				continue
+			var color := LAND_GOOD_COLOR if above > 0.0 else LAND_POOR_COLOR
+			var opacity := clampf(absf(above) / LAND_FULL_AT, 0.0, 1.0) * 0.6
+			_image.set_pixel(x, y, Color(color, opacity))
 
 
 func _draw_unrest() -> void:

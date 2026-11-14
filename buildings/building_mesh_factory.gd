@@ -11,6 +11,8 @@ extends RefCounted
 const MARGIN := 0.15
 ## Thickness of a road slab, in world units.
 const ROAD_HEIGHT := 0.1
+## Thickness of a bridge deck: a little proud of the road it joins.
+const BRIDGE_HEIGHT := 0.16
 
 const BRASS := Color(0.78, 0.6, 0.25)
 const SOOT := Color(0.13, 0.12, 0.12)
@@ -34,7 +36,8 @@ const GRAVEL := Color(0.72, 0.66, 0.52)
 static var _materials: Dictionary = {}
 
 
-static func build(def: BuildingDef) -> Node3D:
+## `bridge` is for a road tile laid on water.
+static func build(def: BuildingDef, bridge: bool = false) -> Node3D:
 	var root := Node3D.new()
 	root.name = "Model"
 	var w := def.footprint.x * CityGrid.TILE_SIZE - MARGIN * 2.0
@@ -76,8 +79,20 @@ static func build(def: BuildingDef) -> Node3D:
 			_warehouse(root, w, d, def.color)
 		BuildingDef.Style.ROAD:
 			# Full tile, no margin, so neighbouring road tiles join up.
-			_box(root, Vector3(w + MARGIN * 2.0, ROAD_HEIGHT, d + MARGIN * 2.0),
-					Vector3(0.0, ROAD_HEIGHT * 0.5, 0.0), def.color)
+			var full_w := w + MARGIN * 2.0
+			var full_d := d + MARGIN * 2.0
+			if bridge:
+				# Timber deck with a post at each corner; the same from every
+				# side, since a bridge tile does not know which way it runs.
+				_box(root, Vector3(full_w, BRIDGE_HEIGHT, full_d),
+						Vector3(0.0, BRIDGE_HEIGHT * 0.5, 0.0), WOOD.lightened(0.1))
+				for corner: Vector2 in [Vector2(-1, -1), Vector2(1, -1), Vector2(-1, 1), Vector2(1, 1)]:
+					_box(root, Vector3(0.16, 0.6, 0.16),
+							Vector3(corner.x * (full_w * 0.5 - 0.08), 0.3, corner.y * (full_d * 0.5 - 0.08)),
+							WOOD.darkened(0.25))
+			else:
+				_box(root, Vector3(full_w, ROAD_HEIGHT, full_d),
+						Vector3(0.0, ROAD_HEIGHT * 0.5, 0.0), def.color)
 		_:
 			_box(root, Vector3(w, 2.0, d), Vector3(0.0, 1.0, 0.0), def.color)
 	return root

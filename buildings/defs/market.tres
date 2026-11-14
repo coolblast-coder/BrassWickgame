@@ -14,3 +14,5 @@ color = Color(0.68, 0.24, 0.2, 1)
 cost = 110
 workers = 4
 crowns_output = 12
+land_value = 0.1
+land_value_range = 4

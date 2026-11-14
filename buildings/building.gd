@@ -10,6 +10,8 @@ var def: BuildingDef
 var origin: Vector2i
 ## Quarter turns clockwise seen from above, 0 to 3.
 var rotation_steps: int = 0
+## True for a road tile laid on water.
+var is_bridge: bool = false
 ## Whether this building is served by the Town Hall's road network.
 ## Kept up to date by Main through set_road_access().
 var road_access: bool = true
@@ -19,6 +21,13 @@ var residents: int = 0
 ## workers, burns nothing and makes nothing, but still costs upkeep.
 ## Change it through set_paused().
 var paused: bool = false
+## Multiplier on this building's output from the ground it stands on: 1 for
+## no effect. Set by CityGrid when the building is placed.
+var terrain_factor: float = 1.0
+## For homes: how desirable the spot is, as a multiplier on the taxes its
+## residents pay, and what they paid on the last simulated day.
+var land_value: float = 1.0
+var tax_paid: int = 0
 ## Workers assigned to this building by the last daily simulation.
 var staff: int = 0
 ## False if this building needed Coal (or, for a Tavern, Food) on the last
@@ -83,13 +92,15 @@ static func transform_for(building_def: BuildingDef, at_origin: Vector2i, steps:
 	return Transform3D(turn, center)
 
 
-func setup(building_def: BuildingDef, at_origin: Vector2i, steps: int = 0) -> void:
+func setup(building_def: BuildingDef, at_origin: Vector2i, steps: int = 0,
+		bridge: bool = false) -> void:
+	is_bridge = bridge
 	def = building_def
 	origin = at_origin
 	rotation_steps = posmod(steps, 4)
 	name = "%s_%d_%d" % [def.id, origin.x, origin.y]
 	transform = transform_for(def, origin, rotation_steps)
-	_model = BuildingMeshFactory.build(def)
+	_model = BuildingMeshFactory.build(def, is_bridge)
 	add_child(_model)
 	if def.housing > 0:
 		for child in _model.get_children():
@@ -128,7 +139,10 @@ func set_road_access(value: bool) -> void:
 	if value == road_access:
 		return
 	road_access = value
-	if def.is_road:
+	if is_bridge:
+		# A bridge keeps its timber look whether or not it is connected.
+		pass
+	elif def.is_road:
 		var color := def.color if road_access else CUT_OFF_ROAD_COLOR
 		var material := BuildingMeshFactory.get_material(color)
 		for child in _model.get_children():

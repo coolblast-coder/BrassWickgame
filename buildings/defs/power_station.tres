@@ -19,3 +19,5 @@ coal_per_day = 8
 steam_output = 20
 smog_per_day = 8
 can_break = true
+land_value = -0.15
+land_value_range = 3

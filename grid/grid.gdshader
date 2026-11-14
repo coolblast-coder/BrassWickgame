@@ -10,6 +10,17 @@ uniform vec3 dry_grass_color : source_color = vec3(0.45, 0.42, 0.25);
 uniform vec3 dirt_color : source_color = vec3(0.37, 0.30, 0.22);
 uniform vec3 line_color : source_color = vec3(0.12, 0.11, 0.08);
 uniform vec3 snow_color : source_color = vec3(0.9, 0.92, 0.95);
+uniform vec3 water_color : source_color = vec3(0.2, 0.38, 0.5);
+uniform vec3 rock_color : source_color = vec3(0.47, 0.45, 0.43);
+uniform vec3 seam_color : source_color = vec3(0.13, 0.12, 0.13);
+uniform vec3 fertile_color : source_color = vec3(0.25, 0.3, 0.13);
+// The terrain of the map, one pixel per tile: red = water, green = rock,
+// blue = coal seam, alpha = fertile soil. Only used where terrain_amount
+// is above zero, which is the map itself and not the hills around it.
+uniform sampler2D terrain_map : filter_linear, repeat_disable;
+uniform float terrain_amount : hint_range(0.0, 1.0) = 0.0;
+// World size of the area the terrain map covers, from the origin.
+uniform float terrain_size = 128.0;
 // How much of the ground lies under snow, from 0 (none) to 1 (all of it).
 // In between, the snow lies in patches.
 uniform float snow_amount : hint_range(0.0, 1.0) = 0.0;
@@ -77,9 +88,24 @@ void fragment() {
 	color *= 0.88 + 0.24 * mottle;
 	color *= 1.0 + (grain - 0.5) * 0.3 * closeness;
 
+	// Terrain: fertile soil, rock and coal seams tint the ground; the river
+	// is drawn last, over the snow.
+	vec2 terrain_uv = pos / terrain_size;
+	float on_map = terrain_amount * step(0.0, terrain_uv.x) * step(terrain_uv.x, 1.0)
+			* step(0.0, terrain_uv.y) * step(terrain_uv.y, 1.0);
+	vec4 terrain = texture(terrain_map, terrain_uv) * on_map;
+	color = mix(color, fertile_color * (0.85 + 0.3 * mottle), terrain.a * 0.8);
+	color = mix(color, rock_color * (0.75 + 0.5 * noise(pos * 1.7)), terrain.g);
+	color = mix(color, seam_color * (0.6 + 0.9 * noise(pos * 3.1)), terrain.b * 0.85);
+
 	// Snow, settling in patches first and thinning the same way.
 	float cover = clamp(snow_amount * 1.3 - (1.0 - snow_amount) * fbm(pos / 8.0) * 1.4, 0.0, 1.0);
 	color = mix(color, snow_color * (0.93 + 0.07 * mottle), cover);
+
+	// The river: moving glints in summer, pale ice under winter's snow.
+	float glint = 0.5 + 0.5 * sin(TIME * 1.3 + pos.x * 0.9 + pos.y * 0.7 + 4.0 * noise(pos * 0.6));
+	vec3 river = mix(water_color * (0.85 + 0.25 * glint), vec3(0.78, 0.85, 0.9), snow_amount * 0.8);
+	color = mix(color, river, terrain.r);
 
 	// Distance to the nearest tile boundary, in tiles.
 	vec2 dist = abs(fract(coord - 0.5) - 0.5);
@@ -87,5 +113,5 @@ void fragment() {
 	float line = max(lines.x, lines.y) * closeness * line_strength;
 
 	ALBEDO = mix(color, line_color, line);
-	ROUGHNESS = 1.0;
+	ROUGHNESS = mix(1.0, 0.25, terrain.r);
 }

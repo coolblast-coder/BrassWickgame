@@ -16,3 +16,5 @@ cost = 500
 steam_per_day = 2
 unique = true
 citywide_calm = 2.0
+land_value = 0.15
+land_value_range = 8

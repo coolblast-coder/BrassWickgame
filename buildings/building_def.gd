@@ -38,6 +38,9 @@ enum Category { INFRASTRUCTURE, HOUSING, SUPPLY, INDUSTRY, SERVICES }
 
 @export_group("Economy")
 @export var cost: int = 0
+## For roads: the cost of a tile laid on water, where it becomes a bridge.
+## Roads are the only thing that can be built on water.
+@export var water_cost: int = 0
 ## Citizens this building can house.
 @export var housing: int = 0
 ## Residents here expect Goods once the city is a City (Townhouse).
@@ -71,6 +74,15 @@ enum Category { INFRASTRUCTURE, HOUSING, SUPPLY, INDUSTRY, SERVICES }
 ## Extra room for every stockpile while connected (Warehouse).
 @export var storage: int = 0
 
+@export_group("Ground")
+## Extra output, as a share of normal, for a building standing wholly on a
+## coal seam (Coal Pit) or on fertile soil (Glasshouse); one standing partly
+## on it gets that part of the bonus.
+@export var seam_bonus: float = 0.0
+@export var fertile_bonus: float = 0.0
+## Extra output for a building with water beside it (Pump Station).
+@export var riverside_bonus: float = 0.0
+
 @export_group("Breakdowns")
 ## Machines can break down; a broken one produces nothing until repaired.
 @export var can_break: bool = false
@@ -88,6 +100,11 @@ enum Category { INFRASTRUCTURE, HOUSING, SUPPLY, INDUSTRY, SERVICES }
 @export var calming: bool = false
 ## Unrest removed per day across the whole city while connected (Clocktower).
 @export var citywide_calm: float = 0.0
+## What this building does to the land value of tiles within
+## `land_value_range` of it, as a share: 0.2 means homes there pay a fifth
+## more tax, -0.15 a sixth less. Several of one kind count once.
+@export var land_value: float = 0.0
+@export var land_value_range: int = 0
 ## Reach of this building's area effect, in tiles from the edge of its
 ## footprint; diagonals count the same as straight lines.
 @export var effect_range: int = 0

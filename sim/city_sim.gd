@@ -93,6 +93,8 @@ var _unpowered: int = 0
 ## True while masks handed out in a Smog Storm keep smoggy homes from
 ## adding Unrest. Set and cleared by CityEvents.
 var smog_unrest_suppressed: bool = false
+## How desirable each tile is to live on; decides what homes pay in tax.
+var land := LandValueMap.new()
 ## The Town Hall's policies, set by Main; null means none are in force.
 var policies: Policies
 
@@ -337,12 +339,23 @@ func _run_economy() -> void:
 			dock.crowns_made = roundi(float(sold) * dock.def.trade_crowns / dock.def.trade_coal)
 			crowns_made += dock.crowns_made
 
-	@warning_ignore("integer_division")
-	var tax := _city.population / CITIZENS_PER_TAX_CROWN
+	# Taxes: each home's residents pay according to the value of the land
+	# they live on, and policies raise or lower the whole take.
+	land.recompute(_grid, _smog)
+	var tax_factor := 1.0
 	if _policy(Policies.HEAVY_TAXES):
-		tax = roundi(tax * Policies.TAX_FACTOR)
+		tax_factor *= Policies.TAX_FACTOR
 	if _policy(Policies.CURFEW):
-		tax = roundi(tax * Policies.CURFEW_TAX_FACTOR)
+		tax_factor *= Policies.CURFEW_TAX_FACTOR
+	var tax := 0
+	for building in _grid.all_buildings:
+		building.tax_paid = 0
+		if building.def.housing <= 0:
+			continue
+		building.land_value = land.value_of(building.cells())
+		building.tax_paid = roundi(
+				building.residents * building.land_value * tax_factor / CITIZENS_PER_TAX_CROWN)
+		tax += building.tax_paid
 	var food_needed := _city.population * FOOD_PER_CITIZEN
 	if _policy(Policies.RATIONING):
 		food_needed = ceili(food_needed * Policies.RATION_FOOD_FACTOR)
@@ -470,8 +483,9 @@ func _produce(building: Building) -> void:
 	var staffing := _staffing(building)
 	var growth := Seasons.FOOD_FACTOR[_season] * (SMOGGY_FOOD_FACTOR if building.smoggy else 1.0)
 	building.ran_today = staffing > 0.0
-	# Policies change what a day's work yields; from here on `staffing` is
-	# the share of full output, not of full staff.
+	# The ground and policies change what a day's work yields; from here on
+	# `staffing` is the share of normal output, not of full staff.
+	staffing *= building.terrain_factor
 	if _policy(Policies.DOUBLE_SHIFTS):
 		staffing *= Policies.SHIFT_OUTPUT_FACTOR
 	if _policy(Policies.CLEAN_AIR) and def.smog_per_day > 0:

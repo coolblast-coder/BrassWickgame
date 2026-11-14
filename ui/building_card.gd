@@ -49,6 +49,7 @@ static func describe_def(def: BuildingDef) -> String:
 	var lines: PackedStringArray = []
 	if def.is_road:
 		lines.append("%s  -  %d Crowns per tile" % [def.display_name, def.cost])
+		lines.append("%d Crowns per tile across water" % def.water_cost)
 	elif def.cost > 0:
 		lines.append("%s  -  %d Crowns" % [def.display_name, def.cost])
 	else:
@@ -88,6 +89,18 @@ static func describe_def(def: BuildingDef) -> String:
 		lines.append("Makes %d Goods a day" % def.goods_output)
 	if def.wants_goods:
 		lines.append("Residents expect Goods from the %s tier on" % CityState.TIER_NAMES[CitySim.GOODS_TIER])
+	if def.seam_bonus > 0.0:
+		lines.append("Up to +%d%% output on a coal seam" % roundi(def.seam_bonus * 100.0))
+	if def.fertile_bonus > 0.0:
+		lines.append("Up to +%d%% output on fertile soil" % roundi(def.fertile_bonus * 100.0))
+	if def.riverside_bonus > 0.0:
+		lines.append("+%d%% output beside the river" % roundi(def.riverside_bonus * 100.0))
+	if def.land_value > 0.0:
+		lines.append("Homes within %d tiles pay %d%% more tax" % [
+				def.land_value_range, roundi(def.land_value * 100.0)])
+	elif def.land_value < 0.0:
+		lines.append("Homes within %d tiles pay %d%% less tax" % [
+				def.land_value_range, roundi(-def.land_value * 100.0)])
 	if def.storage > 0:
 		lines.append("Room for %d more of every resource" % def.storage)
 	if def.trade_coal > 0:

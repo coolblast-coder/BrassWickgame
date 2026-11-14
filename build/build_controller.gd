@@ -10,6 +10,9 @@ signal selection_changed(building: Building)
 ## Something happened that should be heard: &"build", &"road", &"demolish",
 ## &"repair", or &"error" for a click that could not be carried out.
 signal feedback(sound: StringName)
+## While placing, the bonus the ground under the ghost would give changed.
+## `factor` is the output multiplier: 1 for none.
+signal ground_bonus_changed(factor: float)
 
 enum Mode { IDLE, PLACING, DEMOLISHING }
 
@@ -36,6 +39,8 @@ var _cursor: TileCursor
 var _buildings_root: Node3D
 var _ghost: Node3D
 var _ghost_material: StandardMaterial3D
+## The ground bonus last reported for the ghost's position.
+var _ghost_bonus: float = 1.0
 ## The building under the cursor in demolish mode, tinted red; null if none.
 var _demolish_target: Building
 var _demolish_material: StandardMaterial3D
@@ -273,7 +278,8 @@ func fits_here() -> bool:
 		return false
 	if _already_built(selected_def):
 		return false
-	return _grid.can_place(Building.cells_for(selected_def, placement_origin(), rotation_steps))
+	return _grid.can_place(Building.cells_for(selected_def, placement_origin(), rotation_steps),
+			selected_def)
 
 
 ## True for a one-per-city building that already stands somewhere.
@@ -324,7 +330,7 @@ static func road_path(from: Vector2i, to: Vector2i) -> Array[Vector2i]:
 ## already checked that it fits and taken any payment.
 func place_building(def: BuildingDef, origin: Vector2i, steps: int) -> Building:
 	var building := Building.new()
-	building.setup(def, origin, steps)
+	building.setup(def, origin, steps, def.is_road and _grid.is_water(origin))
 	_buildings_root.add_child(building)
 	_grid.add_building(building)
 	return building
@@ -362,12 +368,19 @@ func _finish_drag() -> void:
 	var laid := 0
 	for cell in _drag_cells:
 		var one: Array[Vector2i] = [cell]
-		if _grid.can_place(one) and _city.can_afford(selected_def.cost):
-			_city.crowns -= selected_def.cost
+		var cost := _road_cost(cell)
+		if _grid.can_place(one, selected_def) and _city.can_afford(cost):
+			_city.crowns -= cost
 			place_building(selected_def, cell, 0)
 			laid += 1
 	feedback.emit(&"road" if laid > 0 else &"error")
 	_end_drag()
+
+
+## What one tile of the picked road costs here: more on water, where it is
+## a bridge.
+func _road_cost(cell: Vector2i) -> int:
+	return selected_def.water_cost if _grid.is_water(cell) else selected_def.cost
 
 
 func _end_drag() -> void:
@@ -387,10 +400,12 @@ func _rebuild_drag_preview() -> void:
 			continue  # Crossing an existing road is fine; nothing to show.
 		var pad := MeshInstance3D.new()
 		pad.mesh = _drag_tile_mesh
-		if occupant != null:
+		var one: Array[Vector2i] = [cell]
+		var cost := _road_cost(cell)
+		if occupant != null or not _grid.can_place(one, selected_def):
 			pad.material_override = _drag_blocked_material
-		elif budget >= selected_def.cost:
-			budget -= selected_def.cost
+		elif budget >= cost:
+			budget -= cost
 			pad.material_override = _drag_valid_material
 		else:
 			pad.material_override = _drag_unaffordable_material
@@ -411,6 +426,13 @@ func _update_ghost() -> void:
 			_ghost_material.albedo_color = GHOST_UNAFFORDABLE
 		else:
 			_ghost_material.albedo_color = GHOST_VALID
+	var factor := 1.0
+	if _ghost.visible:
+		factor = _grid.terrain_factor(selected_def,
+				Building.cells_for(selected_def, placement_origin(), rotation_steps))
+	if not is_equal_approx(factor, _ghost_bonus):
+		_ghost_bonus = factor
+		ground_bonus_changed.emit(factor)
 
 
 func _update_demolish_target() -> void:

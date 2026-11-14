@@ -66,6 +66,10 @@ static func describe(building: Building) -> String:
 	if def.housing > 0:
 		lines.append("Residents: %d / %d" % [building.residents, def.housing])
 
+	if def.housing > 0:
+		lines.append("Land value: %d%%  -  paid %d Crowns in tax yesterday" % [
+				roundi(building.land_value * 100.0), building.tax_paid])
+
 	if def.wants_goods:
 		lines.append("Residents expect Goods from the %s tier on." % CityState.TIER_NAMES[CitySim.GOODS_TIER])
 
@@ -104,6 +108,15 @@ static func describe(building: Building) -> String:
 	_append_output(lines, "Water", building.water_made, def.water_output)
 	_append_output(lines, "Goods", building.goods_made, def.goods_output)
 	_append_output(lines, "Steam", building.steam_made, def.steam_output)
+
+	if building.terrain_factor > 1.001:
+		lines.append("Ground: +%d%% output here" % roundi((building.terrain_factor - 1.0) * 100.0))
+	elif def.seam_bonus > 0.0:
+		lines.append("Ground: no coal seam here (up to +%d%% on one)" % roundi(def.seam_bonus * 100.0))
+	elif def.fertile_bonus > 0.0:
+		lines.append("Ground: not fertile here (up to +%d%% on fertile soil)" % roundi(def.fertile_bonus * 100.0))
+	elif def.riverside_bonus > 0.0:
+		lines.append("Ground: no river beside it (+%d%% beside one)" % roundi(def.riverside_bonus * 100.0))
 
 	if building.smoggy:
 		if def.food_output > 0:

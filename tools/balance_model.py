@@ -23,6 +23,13 @@ events now offer. Events here still take the "do nothing" outcome (a strike
 runs its full length, a boiler bursts) and the Airship Trader gives Crowns
 or Food at random, as the game did before choices were added.
 
+The generated terrain is not modelled either, since the model has no map.
+In the game its effects are all bonuses on top of what is modelled here
+(Coal Pits on seams, Glasshouses on fertile soil, Pump Stations by the
+river, higher land value and so tax near amenities and the river), apart
+from lower tax for homes beside industry or in smog. So for output this
+model is the plain-grass case, and real cities do somewhat better.
+
 A scripted player builds once per day. Three kinds are compared:
   naive   pays for every repair; spends freely from day one
   lazy    saves for a first Market; pays for repairs only until the city

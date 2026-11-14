@@ -6,6 +6,9 @@ const GAME_SCENE := "res://main/main.tscn"
 const BACKGROUND := Color(0.13, 0.11, 0.1)
 const BRASS := Color(0.86, 0.68, 0.32)
 
+var _continue_button: Button
+var _seed_box: LineEdit
+
 
 func _ready() -> void:
 	GameSettings.ensure_ready()
@@ -37,10 +40,25 @@ func _ready() -> void:
 	column.add_child(_spacer(18.0))
 
 	_add_button(column, "New city", _on_new_city)
-	var continue_button := _add_button(column, "Continue saved city", _on_continue)
-	continue_button.disabled = not SaveGame.exists()
-	if continue_button.disabled:
-		continue_button.tooltip_text = "No saved city yet. Press F9 in the game to save."
+	var seed_row := HBoxContainer.new()
+	seed_row.add_theme_constant_override("separation", 10)
+	column.add_child(seed_row)
+	var seed_label := Label.new()
+	seed_label.text = "Map seed"
+	seed_row.add_child(seed_label)
+	_seed_box = LineEdit.new()
+	_seed_box.placeholder_text = "leave empty for a random map"
+	_seed_box.custom_minimum_size.x = 236.0
+	_seed_box.max_length = 24
+	_seed_box.tooltip_text = "The same seed always gives the same map.\nA number or a word both work. The seed of a city is shown in its Esc menu."
+	if SaveGame.chosen_map_seed >= 0:
+		_seed_box.text = str(SaveGame.chosen_map_seed)
+	_seed_box.text_submitted.connect(func(_text: String) -> void: _on_new_city())
+	seed_row.add_child(_seed_box)
+	_continue_button = _add_button(column, "Continue saved city", _on_continue)
+	_continue_button.disabled = not SaveGame.exists()
+	if _continue_button.disabled:
+		_continue_button.tooltip_text = "No saved city yet. Press F9 in the game to save."
 	_add_button(column, "Quit", func() -> void: get_tree().quit())
 
 	column.add_child(_spacer(18.0))
@@ -53,12 +71,17 @@ func _ready() -> void:
 
 func _on_new_city() -> void:
 	SaveGame.pending = {}
+	SaveGame.chosen_map_seed = SaveGame.seed_from_text(_seed_box.text)
 	get_tree().change_scene_to_file(GAME_SCENE)
 
 
 func _on_continue() -> void:
 	if SaveGame.load_from_disk():
 		get_tree().change_scene_to_file(GAME_SCENE)
+	else:
+		# The file is damaged, or was saved by an older version of the game.
+		_continue_button.disabled = true
+		_continue_button.text = "Saved city cannot be read by this version"
 
 
 func _add_button(column: VBoxContainer, text: String, action: Callable) -> Button:

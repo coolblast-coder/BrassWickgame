@@ -27,6 +27,10 @@ var town_hall: Building:
 		town_hall = value
 		buildings_changed.emit()
 
+## What the ground is made of. Water and rock cannot be built on. Set by
+## Main; null means the whole map is open ground.
+var terrain: TerrainMap
+
 ## Every building and road tile on the map, in the order they were placed.
 var all_buildings: Array[Building] = []
 
@@ -72,16 +76,54 @@ func building_at(cell: Vector2i) -> Building:
 	return _occupancy.get(cell)
 
 
-## True if every cell is on the map and empty.
-func can_place(cells: Array[Vector2i]) -> bool:
+## True if every cell is on the map, empty, and on ground that a building of
+## kind `def` can stand on. Nothing stands on rock; only roads cross water.
+func can_place(cells: Array[Vector2i], def: BuildingDef = null) -> bool:
+	var bridges := def != null and def.is_road
 	for cell in cells:
 		if not is_in_bounds(cell) or _occupancy.has(cell):
+			return false
+		if terrain != null and not terrain.is_buildable(cell) and not (bridges and is_water(cell)):
 			return false
 	return true
 
 
+## True if this tile is part of the river.
+func is_water(cell: Vector2i) -> bool:
+	return terrain != null and terrain.type_at(cell) == TerrainMap.Type.WATER
+
+
+## The multiplier the ground would give a building of this kind on these
+## cells: 1 for none. Coal seams and fertile soil count by the share of the
+## footprint on them; the river counts if any tile beside the footprint,
+## diagonals included, is water.
+func terrain_factor(def: BuildingDef, cells: Array[Vector2i]) -> float:
+	if terrain == null or cells.is_empty():
+		return 1.0
+	var factor := 1.0
+	if def.seam_bonus > 0.0 or def.fertile_bonus > 0.0:
+		var on_seam := 0
+		var on_fertile := 0
+		for cell in cells:
+			match terrain.type_at(cell):
+				TerrainMap.Type.COAL_SEAM:
+					on_seam += 1
+				TerrainMap.Type.FERTILE:
+					on_fertile += 1
+		factor += def.seam_bonus * on_seam / cells.size()
+		factor += def.fertile_bonus * on_fertile / cells.size()
+	if def.riverside_bonus > 0.0:
+		for cell in cells:
+			for dy in range(-1, 2):
+				for dx in range(-1, 2):
+					if terrain.type_at(cell + Vector2i(dx, dy)) == TerrainMap.Type.WATER:
+						return factor + def.riverside_bonus
+	return factor
+
+
 ## Record `building` on all the cells it covers.
 func add_building(building: Building) -> void:
+	building.terrain_factor = terrain_factor(building.def, building.cells())
 	for cell in building.cells():
 		_occupancy[cell] = building
 	all_buildings.append(building)

@@ -143,6 +143,9 @@ func _scatter_on_map(pine: Mesh, leafy: Mesh) -> void:
 			var cell := Vector2i(cx, cy)
 			if maxi(absi(cx - centre.x), absi(cy - centre.y)) <= clearing_radius:
 				continue
+			# No trees in the river or on bare rock.
+			if _grid.terrain != null and not _grid.terrain.is_buildable(cell):
+				continue
 			var pos := CityGrid.cell_center(cell)
 			if _rng.randf() >= _woodland_at(pos.x, pos.z) * map_tree_density:
 				continue

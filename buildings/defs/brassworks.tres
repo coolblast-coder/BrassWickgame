@@ -18,3 +18,5 @@ coal_per_day = 4
 crowns_output = 40
 smog_per_day = 10
 can_break = true
+land_value = -0.15
+land_value_range = 3

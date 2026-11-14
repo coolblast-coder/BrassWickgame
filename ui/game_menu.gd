@@ -9,6 +9,9 @@ signal save_pressed
 signal load_pressed
 signal main_menu_pressed
 
+var _seed_label: Label
+var _map_seed: int = 0
+
 
 func _ready() -> void:
 	var margin := MarginContainer.new()
@@ -33,6 +36,18 @@ func _ready() -> void:
 	column.add_child(HSeparator.new())
 	_add_button(column, "Main menu", func() -> void: main_menu_pressed.emit())
 	_add_button(column, "Quit game", func() -> void: get_tree().quit())
+	var seed_row := HBoxContainer.new()
+	seed_row.add_theme_constant_override("separation", 10)
+	column.add_child(seed_row)
+	_seed_label = Label.new()
+	_seed_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	seed_row.add_child(_seed_label)
+	var copy := Button.new()
+	copy.text = "Copy"
+	copy.focus_mode = Control.FOCUS_NONE
+	copy.tooltip_text = "Copy the seed, to start this same map again from the title screen."
+	copy.pressed.connect(func() -> void: DisplayServer.clipboard_set(str(_map_seed)))
+	seed_row.add_child(copy)
 	var keys := Label.new()
 	keys.text = "\n".join([
 		"1-5  build categories        Shift+number  pick a building",
@@ -51,6 +66,12 @@ func _ready() -> void:
 	note.modulate = Color(1.0, 1.0, 1.0, 0.6)
 	column.add_child(note)
 	hide()
+
+
+## Show which map this city is built on.
+func set_map_seed(map_seed: int) -> void:
+	_map_seed = map_seed
+	_seed_label.text = "Map seed: %d" % map_seed
 
 
 func open() -> void:

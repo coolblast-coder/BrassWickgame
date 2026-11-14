@@ -19,3 +19,5 @@ coal_per_day = 3
 goods_output = 12
 smog_per_day = 3
 can_break = true
+land_value = -0.15
+land_value_range = 3

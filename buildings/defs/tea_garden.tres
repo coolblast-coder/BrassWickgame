@@ -17,3 +17,5 @@ coal_per_day = 0
 smog_clear_per_day = 4
 effect_range = 4
 calming = true
+land_value = 0.2
+land_value_range = 4

@@ -28,6 +28,11 @@ var _selected: Building
 ## building, or a building on the map.
 var _hovered_def: BuildingDef
 var _hovered_building: Building
+## The hint line's text for the tool in hand, before any ground bonus.
+var _hint_base: String = ""
+var _ground_bonus: float = 1.0
+## The ground under the map, to name the tile under the mouse.
+var _terrain: TerrainMap
 ## True while no build or demolish tool is in hand.
 var _idle: bool = true
 
@@ -97,6 +102,11 @@ func _on_choice_offered(offer: Dictionary) -> void:
 func _toggle_policies() -> void:
 	_stats_panel.hide()
 	policies_panel.toggle()
+
+
+## Called once by Main.
+func bind_terrain(terrain: TerrainMap) -> void:
+	_terrain = terrain
 
 
 ## Called once by Main.
@@ -241,7 +251,9 @@ func show_legend(text: String) -> void:
 
 
 func show_cell(cell: Vector2i, in_bounds: bool) -> void:
-	if in_bounds:
+	if in_bounds and _terrain != null:
+		_cell_label.text = "Tile: (%d, %d)  %s" % [cell.x, cell.y, _terrain.name_at(cell)]
+	elif in_bounds:
 		_cell_label.text = "Tile: (%d, %d)" % [cell.x, cell.y]
 	else:
 		_cell_label.text = "Tile: -"
@@ -255,11 +267,25 @@ func show_build_mode(mode: BuildController.Mode, def: BuildingDef) -> void:
 	match mode:
 		BuildController.Mode.PLACING:
 			if def.is_road:
-				_hint_label.text = "Road (%d Crowns per tile)   |   Click and drag to lay   |   Right click / Esc: cancel" % def.cost
+				_hint_base = "Road (%d Crowns per tile, %d across water)   |   Click and drag to lay   |   Right click / Esc: cancel" % [def.cost, def.water_cost]
 			else:
 				var limit := "   |   One per city" if def.unique else ""
-				_hint_label.text = "%s (%d Crowns)%s   |   R: rotate   |   Right click / Esc: cancel" % [def.display_name, def.cost, limit]
+				_hint_base = "%s (%d Crowns)%s   |   R: rotate   |   Right click / Esc: cancel" % [def.display_name, def.cost, limit]
 		BuildController.Mode.DEMOLISHING:
-			_hint_label.text = "Demolish   |   Left click: remove   |   Right click / Esc: cancel"
+			_hint_base = "Demolish   |   Left click: remove   |   Right click / Esc: cancel"
 		_:
-			_hint_label.text = ""
+			_hint_base = ""
+	_refresh_hint()
+
+
+## While placing, show what the ground under the ghost would add.
+func show_ground_bonus(factor: float) -> void:
+	_ground_bonus = factor
+	_refresh_hint()
+
+
+func _refresh_hint() -> void:
+	var text := _hint_base
+	if not text.is_empty() and _ground_bonus > 1.001:
+		text += "   |   Ground here: +%d%% output" % roundi((_ground_bonus - 1.0) * 100.0)
+	_hint_label.text = text
