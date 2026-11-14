@@ -1,8 +1,9 @@
 class_name BuildBar
 extends VBoxContainer
-## The build menu along the bottom of the screen. The bottom row holds one
-## tab per building category, plus Demolish and Overlay. Opening a category
-## shows its buildings in a row above.
+## The build menu along the bottom of the screen. The bottom row holds the
+## tools that are not buildings (Demolish, Overlay, Stats, Policies,
+## Inventions, Menu). Above it is one tab per building category, and opening
+## a category shows its buildings in a row above that.
 ##
 ## Keys: 1 to 5 open or close a category; Shift + a number picks that
 ## building from the open category.
@@ -16,6 +17,7 @@ signal overlay_pressed
 signal stats_pressed
 signal menu_pressed
 signal policies_pressed
+signal inventions_pressed
 ## Any button of the menu was pressed, by mouse or by key.
 signal clicked
 
@@ -65,19 +67,23 @@ func _ready() -> void:
 		tab.pressed.connect(func() -> void: toggle_category(c))
 		_tabs.append(tab)
 
-	tab_row.add_child(VSeparator.new())
-	_demolish_button = _make_button(tab_row, "X  Demolish")
+	# Everything that is not a building sits on a row of its own, below.
+	var tool_row := _make_row()
+	_demolish_button = _make_button(tool_row, "X  Demolish")
 	_demolish_button.toggle_mode = true
 	_demolish_button.pressed.connect(func() -> void: demolish_pressed.emit())
 
-	_overlay_button = _make_button(tab_row, "")
+	_overlay_button = _make_button(tool_row, "")
 	_overlay_button.pressed.connect(func() -> void: overlay_pressed.emit())
 	set_overlay_name("none")
-	var stats_button := _make_button(tab_row, "G  Stats")
+	tool_row.add_child(VSeparator.new())
+	var stats_button := _make_button(tool_row, "G  Stats")
 	stats_button.pressed.connect(func() -> void: stats_pressed.emit())
-	var policies_button := _make_button(tab_row, "T  Policies")
+	var policies_button := _make_button(tool_row, "T  Policies")
 	policies_button.pressed.connect(func() -> void: policies_pressed.emit())
-	var menu_button := _make_button(tab_row, "Esc  Menu")
+	var inventions_button := _make_button(tool_row, "I  Inventions")
+	inventions_button.pressed.connect(func() -> void: inventions_pressed.emit())
+	var menu_button := _make_button(tool_row, "Esc  Menu")
 	menu_button.pressed.connect(func() -> void: menu_pressed.emit())
 	set_tier(0)
 

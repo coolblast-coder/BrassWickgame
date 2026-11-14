@@ -68,7 +68,8 @@ static func describe_def(def: BuildingDef) -> String:
 		lines.append("Needs %d workers%s" % [def.workers, ", staffed first" if def.essential else ""])
 	if def.coal_per_day > 0:
 		lines.append("Burns %d Coal a day%s" % [
-				def.coal_per_day, ", twice that in winter" if def.housing > 0 else ""])
+				Inventions.machine_coal(def, Inventions.current),
+				", twice that in winter" if def.housing > 0 else ""])
 	if def.food_per_day > 0:
 		lines.append("Uses %d Food a day" % def.food_per_day)
 	if def.food_output > 0:

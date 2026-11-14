@@ -80,7 +80,7 @@ static func describe(building: Building) -> String:
 		lines.append("Workers: %d / %d%s" % [building.staff, def.workers, priority])
 
 	if def.coal_per_day > 0:
-		var coal_line := "Coal: burns %d per day" % def.coal_per_day
+		var coal_line := "Coal: burns %d per day" % Inventions.machine_coal(def, Inventions.current)
 		if def.housing > 0:
 			coal_line += " (twice that in winter)"
 		if building.road_access and not building.fuelled:

@@ -11,6 +11,8 @@ var city := CityState.new()
 var smog := SmogMap.new()
 ## The Town Hall's policies.
 var policies := Policies.new()
+## The city's inventions.
+var inventions := Inventions.new()
 ## Day-by-day record of the city's figures, for the statistics screen.
 var history := CityHistory.new()
 
@@ -80,6 +82,10 @@ func _ready() -> void:
 			func() -> void: get_tree().change_scene_to_file("res://menu/main_menu.tscn"))
 	_sim = CitySim.new(grid, city, smog)
 	_sim.policies = policies
+	_sim.inventions = inventions
+	Inventions.current = inventions
+	_hud.bind_inventions(inventions)
+	_hud.inventions_panel.buy_pressed.connect(_on_invention_pressed)
 	_hud.bind_policies(policies)
 	_hud.policies_panel.policy_pressed.connect(_on_policy_pressed)
 	_council = Council.new(grid, city)
@@ -160,6 +166,13 @@ func _on_request_finished(success: bool, title: String, message: String) -> void
 	_sound.play(&"event" if success else &"error", -4.0)
 
 
+## A Buy button for an invention was pressed.
+func _on_invention_pressed(invention: StringName) -> void:
+	if _game_over:
+		return
+	_sound.play(&"repair" if inventions.buy(invention, city) else &"error", -6.0)
+
+
 ## A policy switch was pressed: change it if the cooldown allows.
 func _on_policy_pressed(policy: StringName) -> void:
 	if _game_over or city.tier < Policies.FROM_TIER:
@@ -205,6 +218,7 @@ func save_game() -> void:
 		"smog": smog.to_save(),
 		"history": history.to_save(),
 		"policies": policies.to_save(),
+		"inventions": inventions.to_save(),
 		"council": _council.to_save(),
 		"cleared_trees": _vegetation.to_save(),
 		"buildings": buildings,
@@ -247,6 +261,7 @@ func _apply_save(data: Dictionary) -> void:
 	_events.from_save(data.get("events", {}))
 	history.from_save(data.get("history", {}))
 	policies.from_save(data.get("policies", {}))
+	inventions.from_save(data.get("inventions", []))
 	_council.from_save(data.get("council", {}))
 	_clock.from_save(data.get("clock", {}))
 	city.day = _clock.day

@@ -18,8 +18,8 @@ with seasons swing from a quarter to all games lost on small changes to its
 habits, so they say little about whether the season numbers are fair. Wind
 is not modelled, because smog is not.
 
-Also not modelled: Town Hall policies, council requests, and the choices
-events now offer. Events here still take the "do nothing" outcome (a strike
+Also not modelled: Town Hall policies, council requests, inventions, and the
+choices events now offer. Events here still take the "do nothing" outcome (a strike
 runs its full length, a boiler bursts) and the Airship Trader gives Crowns
 or Food at random, as the game did before choices were added.
 

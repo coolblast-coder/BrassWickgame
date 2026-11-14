@@ -19,6 +19,7 @@ extends CanvasLayer
 @onready var game_menu: GameMenu = $GameMenu
 @onready var policies_panel: PoliciesPanel = $PoliciesPanel
 @onready var _event_dialog: EventDialog = $EventDialog
+@onready var inventions_panel: InventionsPanel = $InventionsPanel
 
 var _city: CityState
 var _events: CityEvents
@@ -57,6 +58,7 @@ func _ready() -> void:
 	build_bar.stats_pressed.connect(_stats_panel.toggle)
 	build_bar.menu_pressed.connect(game_menu.open)
 	build_bar.policies_pressed.connect(_toggle_policies)
+	build_bar.inventions_pressed.connect(_toggle_inventions)
 	_advisor.jump_requested.connect(func(where: Vector3) -> void: jump_requested.emit(where))
 
 
@@ -66,10 +68,14 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if key.physical_keycode == KEY_G:
 		policies_panel.hide()
+		inventions_panel.hide()
 		_stats_panel.toggle()
 		get_viewport().set_input_as_handled()
 	elif key.physical_keycode == KEY_T:
 		_toggle_policies()
+		get_viewport().set_input_as_handled()
+	elif key.physical_keycode == KEY_I:
+		_toggle_inventions()
 		get_viewport().set_input_as_handled()
 	elif key.physical_keycode == KEY_ESCAPE:
 		# Esc closes whatever is open; with nothing open, no tool in hand and
@@ -84,6 +90,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			_stats_panel.toggle()
 		elif policies_panel.visible:
 			policies_panel.toggle()
+		elif inventions_panel.visible:
+			inventions_panel.toggle()
 		elif _idle and _selected == null:
 			game_menu.open()
 		else:
@@ -95,13 +103,26 @@ func _unhandled_input(event: InputEvent) -> void:
 func _on_choice_offered(offer: Dictionary) -> void:
 	_stats_panel.hide()
 	policies_panel.hide()
+	inventions_panel.hide()
 	_event_dialog.show_offer(offer)
 
 
-## Only one of the two centre panels shows at a time.
+## Only one of the centre panels shows at a time.
 func _toggle_policies() -> void:
 	_stats_panel.hide()
+	inventions_panel.hide()
 	policies_panel.toggle()
+
+
+func _toggle_inventions() -> void:
+	_stats_panel.hide()
+	policies_panel.hide()
+	inventions_panel.toggle()
+
+
+## Called once by Main.
+func bind_inventions(inventions: Inventions) -> void:
+	inventions_panel.bind(inventions, _city)
 
 
 ## Called once by Main.

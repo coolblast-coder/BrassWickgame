@@ -95,6 +95,8 @@ var _unpowered: int = 0
 var smog_unrest_suppressed: bool = false
 ## How desirable each tile is to live on; decides what homes pay in tax.
 var land := LandValueMap.new()
+## The city's inventions, set by Main; null means none are owned.
+var inventions: Inventions
 ## The Town Hall's policies, set by Main; null means none are in force.
 var policies: Policies
 
@@ -152,6 +154,8 @@ func run_day(day: int) -> void:
 	_assign_workers()
 	_run_economy()
 	_smog.emission_factor = Policies.CLEAN_SMOG_FACTOR if _policy(Policies.CLEAN_AIR) else 1.0
+	if _invented(Inventions.FILTER_STACKS):
+		_smog.emission_factor *= Inventions.FILTER_SMOG_FACTOR
 	_smog.step(_grid.all_buildings)
 	_update_unrest()
 	# Repairs come after the day's work, so a breakdown always costs at least
@@ -306,6 +310,8 @@ func _run_economy() -> void:
 	var cold_homes := 0
 	# Homes burn more Coal in winter.
 	var heating := Seasons.HOME_COAL_FACTOR[_season]
+	if _invented(Inventions.DOUBLE_GLAZING):
+		heating = 1
 	for home in homes:
 		if coal_pool >= home.def.coal_per_day * heating:
 			coal_pool -= home.def.coal_per_day * heating
@@ -316,11 +322,12 @@ func _run_economy() -> void:
 
 	var stopped_machines := 0
 	for machine in machines:
-		if coal_pool < machine.def.coal_per_day:
+		var burn := Inventions.machine_coal(machine.def, inventions)
+		if coal_pool < burn:
 			machine.fuelled = false
 			stopped_machines += 1
 		elif _take_steam(machine):
-			coal_pool -= machine.def.coal_per_day
+			coal_pool -= burn
 			_produce(machine)
 			food_made += machine.food_made
 			crowns_made += machine.crowns_made
@@ -347,6 +354,8 @@ func _run_economy() -> void:
 		tax_factor *= Policies.TAX_FACTOR
 	if _policy(Policies.CURFEW):
 		tax_factor *= Policies.CURFEW_TAX_FACTOR
+	if _invented(Inventions.PENNY_POST):
+		tax_factor *= Inventions.POST_TAX_FACTOR
 	var tax := 0
 	for building in _grid.all_buildings:
 		building.tax_paid = 0
@@ -422,6 +431,8 @@ func _run_economy() -> void:
 	for building in _grid.all_buildings:
 		if building.road_access:
 			room += building.def.storage
+	if _invented(Inventions.COLD_STORES):
+		room = roundi(room * Inventions.STORES_FACTOR)
 	_city.storage_capacity = room
 	var coal_lost := maxi(0, _city.coal - room)
 	var food_lost := maxi(0, _city.food - room)
@@ -490,12 +501,18 @@ func _produce(building: Building) -> void:
 		staffing *= Policies.SHIFT_OUTPUT_FACTOR
 	if _policy(Policies.CLEAN_AIR) and def.smog_per_day > 0:
 		staffing *= Policies.CLEAN_OUTPUT_FACTOR
+	var digging := coal_output_factor
+	if _invented(Inventions.CROP_ROTATION):
+		growth *= Inventions.CROP_FACTOR
+	if _invented(Inventions.DEEP_SHAFTS):
+		digging *= Inventions.SHAFT_FACTOR
 	building.food_made = roundi(def.food_output * staffing * growth)
-	building.coal_made = roundi(def.coal_output * staffing * coal_output_factor)
+	building.coal_made = roundi(def.coal_output * staffing * digging)
 	building.crowns_made = roundi(def.crowns_output * staffing)
 	building.water_made = roundi(def.water_output * staffing)
 	building.goods_made = roundi(def.goods_output * staffing)
-	building.steam_made = roundi(def.steam_output * staffing)
+	building.steam_made = roundi(def.steam_output * staffing
+			* (Inventions.MAINS_FACTOR if _invented(Inventions.STEAM_MAINS) else 1.0))
 
 
 ## How fully staffed a building is, from 0 to 1. Buildings that need no
@@ -602,7 +619,10 @@ func _repair_with_yards() -> void:
 	for building in _grid.all_buildings:
 		if building.def.repairs and building.road_access and not building.broken \
 				and building.staff > 0:
-			repair_areas.append(building.footprint_rect().grow(building.def.effect_range))
+			var reach := building.def.effect_range
+			if _invented(Inventions.STANDARD_PARTS):
+				reach += Inventions.PARTS_EXTRA_REACH
+			repair_areas.append(building.footprint_rect().grow(reach))
 	if repair_areas.is_empty():
 		return
 	for building in _grid.all_buildings:
@@ -624,7 +644,14 @@ func breakdown_chance() -> float:
 	var chance := minf(BREAKDOWN_MAX, BREAKDOWN_BASE + BREAKDOWN_PER_MACHINE * machines)
 	if _policy(Policies.DOUBLE_SHIFTS):
 		chance *= Policies.SHIFT_BREAKDOWN_FACTOR
+	if _invented(Inventions.REINFORCED_GEARS):
+		chance *= Inventions.GEARS_BREAKDOWN_FACTOR
 	return chance
+
+
+## Whether an invention is owned.
+func _invented(invention: StringName) -> bool:
+	return inventions != null and inventions.has(invention)
 
 
 ## Whether a Town Hall policy is in force.

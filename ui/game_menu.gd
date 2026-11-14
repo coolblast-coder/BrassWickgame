@@ -54,7 +54,7 @@ func _ready() -> void:
 		"R  rotate        X  demolish        Right click  cancel",
 		"F  repair        P  switch a workplace off or on",
 		"O  overlays        G  statistics        T  policies        M  mute",
-		"N  day and night cycle on or off",
+		"I  inventions        N  day and night cycle on or off",
 		"Space  pause        Tab  speed",
 		"WASD / arrows  move        Q E  turn        Wheel  zoom",
 	])
