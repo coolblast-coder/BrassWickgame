@@ -12,6 +12,7 @@ extends CanvasLayer
 @onready var _info_panel: InfoPanel = $RightColumn/InfoPanel
 @onready var _advisor: AdvisorPanel = $RightColumn/AdvisorPanel
 @onready var _council_panel: CouncilPanel = $RightColumn/CouncilPanel
+@onready var _scenario_panel: ScenarioPanel = $RightColumn/ScenarioPanel
 @onready var _event_banner: EventBanner = $EventBanner
 @onready var _game_over_panel: GameOverPanel = $GameOverPanel
 @onready var _card: BuildingCard = $BuildingCard
@@ -47,6 +48,9 @@ signal power_pressed
 
 ## The Restart button on the end screen was clicked.
 signal restart_pressed
+## After a scenario ended: carry on in free play, or leave for the title.
+signal keep_playing_pressed
+signal main_menu_pressed
 ## An advisor line about a building was clicked: where the camera should go.
 signal jump_requested(world_position: Vector3)
 
@@ -55,6 +59,8 @@ func _ready() -> void:
 	_info_panel.repair_pressed.connect(func() -> void: repair_pressed.emit())
 	_info_panel.power_pressed.connect(func() -> void: power_pressed.emit())
 	_game_over_panel.restart_pressed.connect(func() -> void: restart_pressed.emit())
+	_game_over_panel.continue_pressed.connect(_on_keep_playing)
+	_game_over_panel.main_menu_pressed.connect(func() -> void: main_menu_pressed.emit())
 	build_bar.slot_hovered.connect(_on_slot_hovered)
 	build_bar.stats_pressed.connect(_stats_panel.toggle)
 	build_bar.menu_pressed.connect(game_menu.open)
@@ -144,6 +150,7 @@ func bind_policies(policies: Policies) -> void:
 ## Called once by Main. The advisor reads the map and the city.
 func bind_advisor(grid: CityGrid) -> void:
 	_advisor.bind(grid, _city)
+	_scenario_panel.bind(grid, _city)
 
 
 ## Called once by Main. The statistics screen draws from the history.
@@ -161,6 +168,19 @@ func sync_after_load() -> void:
 	build_bar.set_tier(_city.tier)
 	BuildingCard.city_tier = _city.tier
 	_refresh_warnings()
+	_scenario_panel.refresh()
+
+
+## Cover the HUD with the result of a scenario.
+func show_scenario_result(title: String, message: String) -> void:
+	_event_banner.hide()
+	_scenario_panel.refresh()
+	_game_over_panel.show_scenario_result(title, message, _city.peak_population, _city.day)
+
+
+func _on_keep_playing() -> void:
+	_game_over_panel.hide()
+	keep_playing_pressed.emit()
 
 
 ## Cover the HUD with the end screen and the final score.

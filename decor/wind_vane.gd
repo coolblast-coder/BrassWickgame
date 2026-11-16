@@ -53,7 +53,9 @@ func _ready() -> void:
 ## Point the arrow the way the wind blows: a step on the grid, such as
 ## (1, 0) for towards +X. `instant` skips the slow turn.
 func set_wind(direction: Vector2i, instant: bool = false) -> void:
-	if direction == Vector2i.ZERO:
+	# In still air there is nothing to point at.
+	visible = direction != Vector2i.ZERO
+	if not visible:
 		return
 	var yaw := atan2(float(direction.x), float(direction.y))
 	if _turn != null:

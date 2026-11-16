@@ -84,7 +84,7 @@ func day_passed(day: int) -> void:
 func daily_chance() -> float:
 	for step: Array in CHANCE_BY_POPULATION:
 		if _city.population >= step[0]:
-			return step[1]
+			return step[1] * GameRules.event_chance()
 	return 0.0
 
 

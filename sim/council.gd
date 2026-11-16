@@ -35,6 +35,8 @@ var _request: Dictionary = {}
 ## Days until the next request is made, while there is none.
 var _days_until_next: int = 0
 var _last_kind: StringName = &""
+## Requests met in this city so far.
+var requests_met: int = 0
 
 
 func _init(grid: CityGrid, city: CityState) -> void:
@@ -137,6 +139,7 @@ func _finish(success: bool) -> void:
 	_request = {}
 	_days_until_next = DAYS_BETWEEN
 	if success:
+		requests_met += 1
 		_city.crowns += reward
 		request_finished.emit(true, "The council is pleased",
 				"%s\nDone. The treasury receives %d Crowns." % [asked, reward])
@@ -199,7 +202,8 @@ func to_save() -> Dictionary:
 	var request := _request.duplicate()
 	if has_request():
 		request["kind"] = String(_request["kind"])
-	return {"request": request, "days_until_next": _days_until_next, "last_kind": String(_last_kind)}
+	return {"request": request, "days_until_next": _days_until_next,
+			"last_kind": String(_last_kind), "requests_met": requests_met}
 
 
 func from_save(data: Dictionary) -> void:
@@ -216,4 +220,5 @@ func from_save(data: Dictionary) -> void:
 		}
 	_days_until_next = int(data.get("days_until_next", 0))
 	_last_kind = StringName(str(data.get("last_kind", "")))
+	requests_met = int(data.get("requests_met", 0))
 	request_changed.emit()

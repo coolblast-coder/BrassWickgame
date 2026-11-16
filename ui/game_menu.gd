@@ -1,7 +1,9 @@
 class_name GameMenu
 extends PanelContainer
 ## The in-game menu, opened with Esc: resume, save, load, volume, back to the
-## title screen, quit. The game is paused while it is open.
+## title screen, quit. It also shows the terms the city is played on (its
+## scenario, difficulty, twists and map seed) and the list of controls. The
+## game is paused while it is open.
 
 ## The menu was opened or closed.
 signal toggled(open: bool)
@@ -10,6 +12,7 @@ signal load_pressed
 signal main_menu_pressed
 
 var _seed_label: Label
+var _terms_label: Label
 var _map_seed: int = 0
 
 
@@ -36,6 +39,8 @@ func _ready() -> void:
 	column.add_child(HSeparator.new())
 	_add_button(column, "Main menu", func() -> void: main_menu_pressed.emit())
 	_add_button(column, "Quit game", func() -> void: get_tree().quit())
+	_terms_label = Label.new()
+	column.add_child(_terms_label)
 	var seed_row := HBoxContainer.new()
 	seed_row.add_theme_constant_override("separation", 10)
 	column.add_child(seed_row)
@@ -67,6 +72,14 @@ func _ready() -> void:
 	note.modulate = Color(1.0, 1.0, 1.0, 0.6)
 	column.add_child(note)
 	hide()
+
+
+## Show the terms this city is played on.
+func set_terms(difficulty: String) -> void:
+	_terms_label.text = "%s   -   Difficulty: %s" % [GameRules.scenario_name(), difficulty]
+	var twists := GameRules.twist_names()
+	if not twists.is_empty():
+		_terms_label.text += "\nTwists: %s" % ", ".join(twists)
 
 
 ## Show which map this city is built on.

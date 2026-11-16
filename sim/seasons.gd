@@ -33,8 +33,18 @@ const EFFECTS: Array[String] = [
 
 ## The season on a given day (days count from 1).
 static func of_day(day: int) -> Season:
+	if GameRules.has_twist(GameRules.ENDLESS_WINTER):
+		return Season.WINTER
 	@warning_ignore("integer_division")
 	return (((maxi(day, 1) - 1) / DAYS_PER_SEASON) % 4) as Season
+
+
+## The way the wind blows on a given day, as a step on the grid; zero when
+## the air is still.
+static func wind_on(day: int) -> Vector2i:
+	if GameRules.has_twist(GameRules.STILL_AIR):
+		return Vector2i.ZERO
+	return WIND[of_day(day)]
 
 
 ## The day within its season, from 1 to DAYS_PER_SEASON.

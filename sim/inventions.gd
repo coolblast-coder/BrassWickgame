@@ -68,6 +68,15 @@ func has(invention: StringName) -> bool:
 	return _owned.get(invention, false)
 
 
+## How many inventions are owned.
+func owned_count() -> int:
+	var count := 0
+	for entry: Array in LIST:
+		if has(entry[0]):
+			count += 1
+	return count
+
+
 ## Why `invention` cannot be bought right now; empty if it can.
 func blocked_reason(invention: StringName, city: CityState) -> String:
 	var entry := _entry(invention)

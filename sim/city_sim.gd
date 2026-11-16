@@ -108,6 +108,9 @@ const UNREST_TAVERN := 3.0         # by share of homes near an open Tavern
 
 ## The season whose rules apply to the day being simulated.
 var _season: Seasons.Season = Seasons.Season.SPRING
+## Everything that raised Unrest so far today; only meaningful while
+## _update_unrest() runs.
+var _unrest_gains: float = 0.0
 ## Steam still unclaimed today; only meaningful while _run_economy() runs.
 var _steam_pool: int = 0
 ## Buildings that went without Steam today.
@@ -170,7 +173,7 @@ func run_day(day: int) -> void:
 	for building in _grid.all_buildings:
 		if building.under_construction():
 			building.set_construction(building.construction_days_left - 1)
-	_smog.wind = Seasons.WIND[Seasons.of_day(day)]
+	_smog.wind = Seasons.wind_on(day)
 	var crowns_before := _city.crowns
 	var coal_before := _city.coal
 	var food_before := _city.food
@@ -533,7 +536,7 @@ func _produce(building: Building) -> void:
 		staffing *= Policies.SHIFT_OUTPUT_FACTOR
 	if _policy(Policies.CLEAN_AIR) and def.smog_per_day > 0:
 		staffing *= Policies.CLEAN_OUTPUT_FACTOR
-	var digging := coal_output_factor
+	var digging := coal_output_factor * GameRules.coal_yield()
 	if _invented(Inventions.CROP_ROTATION):
 		growth *= Inventions.CROP_FACTOR
 	if _invented(Inventions.DEEP_SHAFTS):
@@ -558,6 +561,7 @@ func _staffing(building: Building) -> float:
 ## Add up everything that went wrong (and right) today and move the Unrest
 ## meter. Runs last, so it sees today's shortages and smog.
 func _update_unrest() -> void:
+	_unrest_gains = 0.0
 	# Each connected Tea Garden, and each Tavern that opened today, calms the
 	# homes within its reach. The two add up.
 	var calm_areas: Array[Rect2i] = []
@@ -625,6 +629,9 @@ func _update_unrest() -> void:
 		change += _cause(causes, "Heavy taxes", Policies.TAX_UNREST)
 	if _policy(Policies.CURFEW):
 		change += _cause(causes, "Curfew", Policies.CURFEW_UNREST)
+	# The difficulty scales everything that raised Unrest today.
+	var terms := _unrest_gains * (GameRules.unrest_gain() - 1.0)
+	change += _cause(causes, "%s terms" % GameRules.difficulty_name(), terms)
 	change += _cause(causes, "Baseline calm", -UNREST_BASELINE_CALM)
 
 	_city.unrest_causes = causes
@@ -639,6 +646,7 @@ func _update_unrest() -> void:
 func _cause(causes: PackedStringArray, label: String, amount: float) -> float:
 	if not is_zero_approx(amount):
 		causes.append("%s: %+.1f" % [label, amount])
+	_unrest_gains += maxf(amount, 0.0)
 	return amount
 
 
@@ -689,6 +697,7 @@ func _update_fires() -> void:
 	for building in burning:
 		if _in_any(covered, building.footprint_rect()):
 			building.set_on_fire(false)
+			_city.fires_put_out += 1
 			# A machine that has been on fire needs repairing before it runs.
 			if building.def.can_break:
 				building.set_broken(true)
@@ -696,7 +705,7 @@ func _update_fires() -> void:
 		building.fire_days += 1
 		if building.fire_days >= FIRE_BURN_DAYS:
 			lost.append(building)
-		elif randf() < FIRE_SPREAD_CHANCE:
+		elif randf() < FIRE_SPREAD_CHANCE * GameRules.fire_spread():
 			var neighbour := _something_to_burn(building)
 			if neighbour != null:
 				neighbour.set_on_fire(true)
@@ -715,6 +724,7 @@ func _update_fires() -> void:
 			if lit and building.def.coal_per_day > 0 and building.is_usable():
 				hearths.append(building)
 		var chance := minf(FIRE_MAX_CHANCE, FIRE_BASE_CHANCE + FIRE_CHANCE_PER_HEARTH * hearths.size())
+		chance *= GameRules.fire_chance()
 		if not hearths.is_empty() and randf() < chance:
 			var victim: Building = hearths.pick_random()
 			victim.set_on_fire(true)
@@ -759,7 +769,7 @@ func breakdown_chance() -> float:
 		chance *= Policies.SHIFT_BREAKDOWN_FACTOR
 	if _invented(Inventions.REINFORCED_GEARS):
 		chance *= Inventions.GEARS_BREAKDOWN_FACTOR
-	return chance
+	return chance * GameRules.breakdown_chance()
 
 
 ## Whether an invention is owned.

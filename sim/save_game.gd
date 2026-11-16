@@ -23,7 +23,12 @@ const RANDOM_SEED_LIMIT := 1000000
 
 ## The seed for a new city's map: the one the player chose, or a random one.
 static func new_map_seed() -> int:
-	return chosen_map_seed if chosen_map_seed >= 0 else randi() % RANDOM_SEED_LIMIT
+	if chosen_map_seed >= 0:
+		return chosen_map_seed
+	# A scenario brings its own map, so everyone plays it on the same ground.
+	if GameRules.scenario_seed() >= 0:
+		return GameRules.scenario_seed()
+	return randi() % RANDOM_SEED_LIMIT
 
 
 ## Turn what the player typed into a seed: digits are used as they are, any

@@ -1,11 +1,20 @@
 class_name GameOverPanel
 extends ColorRect
-## The end screen. Covers the whole window, so nothing behind it can be
-## clicked, and offers a restart.
+## The end screen, for the Great Walkout and for a scenario won or lost.
+## Covers the whole window, so nothing behind it can be clicked. A walkout
+## ends the game; after a scenario the player may carry on in free play.
 
 signal restart_pressed
+## "Keep playing" was pressed after a scenario ended.
+signal continue_pressed
+signal main_menu_pressed
 
+const WALKOUT_TITLE := "The Great Walkout"
+
+var _title: Label
+var _message: Label
 var _stats: Label
+var _continue_button: Button
 
 
 func _ready() -> void:
@@ -23,34 +32,66 @@ func _ready() -> void:
 	column.add_theme_constant_override("separation", 14)
 	margin.add_child(column)
 
-	var title := Label.new()
-	title.text = "The Great Walkout"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 28)
-	title.modulate = Color(1.0, 0.85, 0.45)
-	column.add_child(title)
+	_title = Label.new()
+	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_title.add_theme_font_size_override("font_size", 28)
+	_title.modulate = Color(1.0, 0.85, 0.45)
+	column.add_child(_title)
 
-	var message := Label.new()
-	message.text = "Unrest held at 100 for %d days. The citizens have packed their bags, " % CitySim.WALKOUT_DAYS \
-			+ "their grievances and, in several cases, your furniture."
-	message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	message.custom_minimum_size = Vector2(420.0, 0.0)
-	column.add_child(message)
+	_message = Label.new()
+	_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_message.custom_minimum_size = Vector2(420.0, 0.0)
+	column.add_child(_message)
 
 	_stats = Label.new()
 	_stats.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	column.add_child(_stats)
 
-	var restart := Button.new()
-	restart.text = "Restart"
-	restart.focus_mode = Control.FOCUS_NONE
-	restart.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	restart.pressed.connect(func() -> void: restart_pressed.emit())
-	column.add_child(restart)
+	var buttons := HBoxContainer.new()
+	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
+	buttons.add_theme_constant_override("separation", 12)
+	column.add_child(buttons)
+	_continue_button = _add_button(buttons, "Keep playing", func() -> void: continue_pressed.emit())
+	_add_button(buttons, "Restart", func() -> void: restart_pressed.emit())
+	_add_button(buttons, "Main menu", func() -> void: main_menu_pressed.emit())
 
 	hide()
 
 
+## The Great Walkout: the game is over.
 func show_result(peak_population: int, days_survived: int) -> void:
-	_stats.text = "Peak population: %d\nDays survived: %d" % [peak_population, days_survived]
+	_title.text = WALKOUT_TITLE
+	_message.text = "Unrest held at 100 for %d days. The citizens have packed their bags, " % CitySim.WALKOUT_DAYS \
+			+ "their grievances and, in several cases, your furniture."
+	_continue_button.hide()
+	_show_stats(peak_population, days_survived)
 	show()
+
+
+## A scenario has been won or lost. The city is still standing, so the
+## player may keep playing it without a goal.
+func show_scenario_result(title: String, message: String, peak_population: int, day: int) -> void:
+	_title.text = title
+	_message.text = message
+	_continue_button.show()
+	_show_stats(peak_population, day)
+	show()
+
+
+func _show_stats(peak_population: int, days: int) -> void:
+	_stats.text = "Peak population: %d\nDays: %d\nDifficulty: %s" % [
+			peak_population, days, GameRules.difficulty_name()]
+	var twists := GameRules.twist_names()
+	if not twists.is_empty():
+		_stats.text += "\nTwists: %s" % ", ".join(twists)
+	if not ScoreBoard.last_note.is_empty():
+		_stats.text += "\n%s" % ScoreBoard.last_note
+
+
+func _add_button(row: HBoxContainer, text: String, action: Callable) -> Button:
+	var button := Button.new()
+	button.text = text
+	button.focus_mode = Control.FOCUS_NONE
+	button.pressed.connect(action)
+	row.add_child(button)
+	return button

@@ -15,6 +15,7 @@
 [ext_resource type="Script" path="res://ui/council_panel.gd" id="13_council"]
 [ext_resource type="Script" path="res://ui/inventions_panel.gd" id="14_inventions"]
 [ext_resource type="Script" path="res://ui/minimap.gd" id="15_minimap"]
+[ext_resource type="Script" path="res://ui/scenario_panel.gd" id="16_scenario"]
 
 [node name="HUD" type="CanvasLayer"]
 script = ExtResource("1_hud")
@@ -81,6 +82,13 @@ theme_override_constants/separation = 8
 layout_mode = 2
 size_flags_horizontal = 8
 script = ExtResource("4_info")
+
+[node name="ScenarioPanel" type="PanelContainer" parent="RightColumn"]
+visible = false
+layout_mode = 2
+size_flags_horizontal = 8
+mouse_filter = 2
+script = ExtResource("16_scenario")
 
 [node name="CouncilPanel" type="PanelContainer" parent="RightColumn"]
 visible = false

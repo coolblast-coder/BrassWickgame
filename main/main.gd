@@ -29,6 +29,8 @@ var _event_sounded: bool = false
 var _paused_by_menu: bool = false
 ## True if an event's decision paused the clock, so deciding resumes.
 var _paused_by_event: bool = false
+## True while a scenario's result is on screen with the clock stopped.
+var _paused_by_result: bool = false
 
 @onready var _tile_cursor: TileCursor = $TileCursor
 @onready var _hud: HUD = $HUD
@@ -67,7 +69,10 @@ func _ready() -> void:
 	_hud.repair_pressed.connect(_build_controller.repair_selected)
 	_hud.power_pressed.connect(_build_controller.toggle_selected_power)
 	_hud.power_pressed.connect(func() -> void: _sound.play(&"click", -8.0))
-	_hud.restart_pressed.connect(func() -> void: get_tree().reload_current_scene())
+	_hud.restart_pressed.connect(_restart)
+	_hud.keep_playing_pressed.connect(_on_keep_playing)
+	_hud.main_menu_pressed.connect(
+			func() -> void: get_tree().change_scene_to_file("res://menu/main_menu.tscn"))
 	_hud.build_bar.slot_pressed.connect(_build_controller.select_slot)
 	_hud.build_bar.demolish_pressed.connect(_build_controller.toggle_demolish)
 	_hud.top_bar.bind_clock(_clock)
@@ -127,6 +132,12 @@ func _ready() -> void:
 	if not SaveGame.pending.is_empty():
 		_apply_save(SaveGame.pending)
 		SaveGame.pending = {}
+	else:
+		# A new city starts with what its difficulty allows, and its scenario
+		# is still to be decided.
+		city.crowns = GameRules.start_crowns()
+		GameRules.scenario_settled = false
+	_hud.game_menu.set_terms(GameRules.difficulty_name())
 
 
 func _process(_delta: float) -> void:
@@ -160,6 +171,59 @@ func _on_choice_offered(_offer: Dictionary) -> void:
 func _on_choice_resolved() -> void:
 	if _paused_by_event:
 		_paused_by_event = false
+		if _clock.paused:
+			_clock.toggle_pause()
+
+
+## Announce achievements earned just now: each a [name, description] pair
+## (empty pairs are skipped). Several at once share one banner.
+func _announce(earned: Array) -> void:
+	var lines := PackedStringArray()
+	for pair: Array in earned:
+		if pair.size() == 2:
+			lines.append("%s: %s" % [pair[0], pair[1]])
+	if lines.is_empty():
+		return
+	_hud.show_notice("Achievement earned", "\n".join(lines))
+	_event_sounded = true
+	_sound.play(&"event", -6.0)
+
+
+## Start the same kind of city again: same difficulty, scenario and seed.
+func _restart() -> void:
+	SaveGame.pending = {}
+	get_tree().reload_current_scene()
+
+
+## See whether today settled the scenario, and if so stop the clock and say
+## how it went. The city itself carries on if the player wants it to.
+func _judge_scenario() -> void:
+	var outcome := GameRules.judge(city, grid)
+	if outcome == 0:
+		return
+	GameRules.scenario_settled = true
+	_paused_by_result = not _clock.paused
+	if _paused_by_result:
+		_clock.toggle_pause()
+	_event_sounded = true
+	ScoreBoard.enter(city, "Won" if outcome > 0 else "Out of time", terrain.map_seed)
+	if outcome > 0:
+		_announce([Achievements.earn(&"scenario")])
+	if outcome > 0:
+		_sound.play(&"event")
+		_hud.show_scenario_result("%s: done" % GameRules.scenario_name(),
+				"%s\nYou did it. The city is yours to carry on with, for as long as it stands."
+				% GameRules.goal_text())
+	else:
+		_sound.play(&"game_over")
+		_hud.show_scenario_result("%s: out of time" % GameRules.scenario_name(),
+				"%s\nThe day has passed. You can keep the city going in free play, or try again."
+				% GameRules.goal_text())
+
+
+func _on_keep_playing() -> void:
+	if _paused_by_result:
+		_paused_by_result = false
 		if _clock.paused:
 			_clock.toggle_pause()
 
@@ -201,7 +265,7 @@ func _on_policy_pressed(policy: StringName) -> void:
 func _show_season(instant: bool) -> void:
 	var season := Seasons.of_day(_clock.day)
 	_season_view.show_season(season, instant)
-	smog.wind = Seasons.WIND[season]
+	smog.wind = Seasons.wind_on(_clock.day)
 	_wind_vane.set_wind(smog.wind, instant)
 	Building.smoke_drift = Vector3(smog.wind.x, 0.0, smog.wind.y)
 	for building in grid.all_buildings:
@@ -232,6 +296,7 @@ func save_game() -> void:
 		buildings.append(building.to_save())
 	var saved := SaveGame.write({
 		"map_seed": terrain.map_seed,
+		"rules": GameRules.to_save(),
 		"clock": _clock.to_save(),
 		"city": city.to_save(),
 		"events": _events.to_save(),
@@ -261,6 +326,7 @@ func load_game() -> void:
 
 ## Rebuild a saved city in this freshly started scene.
 func _apply_save(data: Dictionary) -> void:
+	GameRules.from_save(data.get("rules", {}))
 	# Buildings first, in their saved order: it decides workers and Coal.
 	for entry: Variant in data.get("buildings", []):
 		if not entry is Dictionary:
@@ -352,6 +418,8 @@ func _on_day_ended(day: int) -> void:
 		return
 	_events.day_passed(day)
 	_council.day_passed(day)
+	_judge_scenario()
+	_announce(Achievements.check(city, grid, inventions, _council))
 	# Announce a change of season, once the seasons matter.
 	var season := Seasons.of_day(day + 1)
 	if season != Seasons.of_day(day):
@@ -402,6 +470,7 @@ func _end_game(days_survived: int) -> void:
 	_build_controller.shut_down()
 	_hud.build_bar.enabled = false
 	_sound.play(&"game_over")
+	ScoreBoard.enter(city, "Walkout", terrain.map_seed)
 	_hud.show_game_over(city.peak_population, days_survived)
 
 

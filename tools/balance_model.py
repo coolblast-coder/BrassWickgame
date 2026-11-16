@@ -23,6 +23,9 @@ choices events now offer. Events here still take the "do nothing" outcome (a str
 runs its full length, a boiler bursts) and the Airship Trader gives Crowns
 or Food at random, as the game did before choices were added.
 
+The model plays on Standard difficulty with no twists and no scenario
+deadline; none of those are modelled.
+
 Two later rules are missing too, and both make the real game harder than
 this model: new buildings take one to four days to build (here they work
 at once), and from the Town tier buildings can catch fire.
