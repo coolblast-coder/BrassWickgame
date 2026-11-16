@@ -75,6 +75,9 @@ func _ready() -> void:
 	_hud.bind_history(history)
 	_hud.bind_advisor(grid)
 	_hud.jump_requested.connect(_camera_rig.focus_on)
+	_hud.minimap.setup(grid, terrain, _camera_rig)
+	_hud.minimap.pan_requested.connect(
+			func(where: Vector3) -> void: _camera_rig.focus_on(where, false))
 	_hud.game_menu.toggled.connect(_on_menu_toggled)
 	_hud.game_menu.save_pressed.connect(save_game)
 	_hud.game_menu.load_pressed.connect(load_game)
@@ -82,6 +85,8 @@ func _ready() -> void:
 			func() -> void: get_tree().change_scene_to_file("res://menu/main_menu.tscn"))
 	_sim = CitySim.new(grid, city, smog)
 	_sim.policies = policies
+	_sim.fire_started.connect(_on_fire_started)
+	_sim.burned_down.connect(_on_burned_down)
 	_sim.inventions = inventions
 	Inventions.current = inventions
 	_hud.bind_inventions(inventions)
@@ -97,7 +102,7 @@ func _ready() -> void:
 	_overlay.mode_changed.connect(_on_overlay_mode_changed)
 	_hud.build_bar.overlay_pressed.connect(_overlay.cycle)
 	_walkers.setup(grid, city, _clock)
-	_airships.setup(city, _clock)
+	_airships.setup(city, _clock, grid)
 	_clock.day_ended.connect(_on_day_ended)
 	city.changed.connect(func() -> void: _sound.set_city_size(city.population))
 	_build_controller.feedback.connect(_on_build_feedback)
@@ -166,6 +171,18 @@ func _on_request_finished(success: bool, title: String, message: String) -> void
 	_sound.play(&"event" if success else &"error", -4.0)
 
 
+func _on_fire_started(building: Building) -> void:
+	_hud.show_notice("Fire!", "The %s is alight. Put it out (select it, then F), or it will spread." % building.def.display_name)
+	_event_sounded = true
+	_sound.play(&"breakdown", -2.0)
+
+
+func _on_burned_down(display_name: String) -> void:
+	_hud.show_notice("Burned down", "The %s has burned to the ground." % display_name)
+	_event_sounded = true
+	_sound.play(&"demolish", -2.0)
+
+
 ## A Buy button for an invention was pressed.
 func _on_invention_pressed(invention: StringName) -> void:
 	if _game_over:
@@ -186,6 +203,9 @@ func _show_season(instant: bool) -> void:
 	_season_view.show_season(season, instant)
 	smog.wind = Seasons.WIND[season]
 	_wind_vane.set_wind(smog.wind, instant)
+	Building.smoke_drift = Vector3(smog.wind.x, 0.0, smog.wind.y)
+	for building in grid.all_buildings:
+		building.lean_smoke()
 
 
 ## The game stands still while the menu is open.
@@ -280,8 +300,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			load_game()
 			return
 	# Development aids: F1 to F5 fire each event at once, to test them without
-	# waiting for the dice, F6 unlocks the next city tier, and F7 skips to the
-	# next season. Not in exported builds.
+	# waiting for the dice, F6 unlocks the next city tier, F7 skips to the
+	# next season, and F8 sets the selected building on fire. Not in exported
+	# builds.
 	if not OS.is_debug_build() or _game_over:
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
@@ -296,6 +317,12 @@ func _unhandled_input(event: InputEvent) -> void:
 				_events.fire(CityEvents.Type.AIRSHIP_TRADER, _clock.day)
 			KEY_F5:
 				_events.fire(CityEvents.Type.FESTIVAL, _clock.day)
+			KEY_F8:
+				# Set the selected building alight.
+				var target := _build_controller.selected_building
+				if is_instance_valid(target) and target.def.demolishable:
+					target.set_on_fire(true)
+					_on_fire_started(target)
 			KEY_F7:
 				# Skip to the first day of the next season.
 				_clock.day += Seasons.days_until_next(_clock.day)

@@ -67,6 +67,26 @@ func _ready() -> void:
 	settings_heading.modulate = BRASS
 	column.add_child(settings_heading)
 	column.add_child(SettingsPanel.new())
+	_start_music()
+
+
+## The same piece that plays in the game, so the title screen is not silent.
+func _start_music() -> void:
+	var path := "res://audio/music_loop.wav"
+	if not ResourceLoader.exists(path):
+		return
+	var stream := load(path) as AudioStreamWAV
+	if stream == null:
+		return
+	stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	stream.loop_begin = 0
+	stream.loop_end = roundi(stream.get_length() * stream.mix_rate)
+	var player := AudioStreamPlayer.new()
+	player.stream = stream
+	player.bus = GameSettings.MUSIC_BUS
+	player.volume_db = SoundPlayer.MUSIC_DB
+	add_child(player)
+	player.play()
 
 
 func _on_new_city() -> void:

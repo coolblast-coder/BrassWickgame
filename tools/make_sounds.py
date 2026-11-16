@@ -4,7 +4,10 @@ Every sound is generated from noise and sine waves, so the game ships with no
 recorded audio. They are simple placeholders: to use a recording instead,
 replace the .wav of the same name (mono or stereo, any sample rate).
 
-Usage (needs only Python 3):
+The music is made the same way, from a short score written out in
+music_loop(); it takes most of the run time.
+
+Usage (needs only Python 3; about a minute):
   python tools/make_sounds.py
 """
 import math
@@ -210,6 +213,79 @@ def game_over():
     return mix(*layers)
 
 
+def note_hz(midi):
+    return 440.0 * 2.0 ** ((midi - 69) / 12.0)
+
+
+def add_note(buffer, start, midi, seconds, level, partials, attack, half_life):
+    """Mix one note into `buffer`, wrapping past the end so the piece loops.
+
+    `partials` is a list of (multiple of the note's pitch, loudness).
+    """
+    n = len(buffer)
+    freq = note_hz(midi)
+    first = int(start * RATE)
+    count = int(seconds * RATE)
+    rise = max(1, int(attack * RATE))
+    k = math.log(2.0) / (half_life * RATE)
+    release = max(1, int(0.08 * RATE))
+    for i in range(count):
+        envelope = min(1.0, i / rise) * math.exp(-k * i) * min(1.0, (count - i) / release)
+        t = 2.0 * math.pi * freq * i / RATE
+        value = 0.0
+        for multiple, loudness in partials:
+            value += loudness * math.sin(t * multiple)
+        buffer[(first + i) % n] += value * envelope * level
+
+
+def music_loop():
+    """A slow sixteen-bar piece in D minor: a bass note under each chord, a
+    plucked arpeggio, a soft pad, and a bell tune on top. Notes that ring
+    past the end are wrapped round to the start, so it loops without a seam."""
+    beat = 60.0 / 72.0
+    bar = 4 * beat
+    bars = 16
+    buffer = [0.0] * int(bars * bar * RATE)
+    # One chord every two bars: its bass note, then its three notes.
+    chords = [
+        (38, (62, 65, 69)),  # D minor
+        (34, (58, 62, 65)),  # B flat
+        (41, (60, 65, 69)),  # F
+        (36, (60, 64, 67)),  # C
+        (38, (62, 65, 69)),  # D minor
+        (43, (58, 62, 67)),  # G minor
+        (45, (61, 64, 69)),  # A
+        (38, (62, 65, 69)),  # D minor
+    ]
+    pluck = [(1, 1.0), (2, 0.35), (3, 0.12)]
+    bell = [(1, 1.0), (2.76, 0.3), (5.4, 0.12)]
+    soft = [(1, 1.0), (2, 0.15)]
+    order = [0, 1, 2, 1, 3, 2, 1, 2]  # 3 = the root an octave up
+    for index, (bass, tones) in enumerate(chords):
+        start = index * 2 * bar
+        add_note(buffer, start, bass, 2 * bar, 0.5, [(1, 1.0), (2, 0.4), (3, 0.1)], 0.05, 2.5)
+        for tone in tones:
+            add_note(buffer, start, tone - 12, 2 * bar + 0.5, 0.1, soft, 1.2, 6.0)
+        for eighth in range(16):
+            step = order[eighth % 8]
+            midi = tones[0] + 12 if step == 3 else tones[step]
+            add_note(buffer, start + eighth * beat * 0.5, midi, 0.9, 0.2, pluck, 0.004, 0.16)
+    # The tune: (bar, beat within the bar, note, length in beats).
+    tune = [
+        (0, 0, 74, 2), (0, 2, 77, 2), (1, 0, 76, 3),
+        (2, 0, 74, 2), (2, 2, 70, 2), (3, 0, 72, 4),
+        (4, 0, 69, 2), (4, 2, 72, 2), (5, 0, 77, 3),
+        (6, 0, 76, 2), (6, 2, 72, 2), (7, 0, 67, 4),
+        (8, 0, 74, 2), (8, 2, 77, 2), (9, 0, 81, 3),
+        (10, 0, 79, 2), (10, 2, 74, 2), (11, 0, 70, 4),
+        (12, 0, 73, 2), (12, 2, 76, 2), (13, 0, 81, 3),
+        (14, 0, 77, 2), (14, 2, 74, 2), (15, 0, 74, 4),
+    ]
+    for at_bar, at_beat, midi, beats in tune:
+        add_note(buffer, at_bar * bar + at_beat * beat, midi, beats * beat + 1.0, 0.26, bell, 0.006, 0.7)
+    return low_pass(buffer, 5000)
+
+
 if __name__ == "__main__":
     save("wind_loop", wind_loop(), 0.7)
     save("city_loop", city_loop(), 0.7)
@@ -223,3 +299,4 @@ if __name__ == "__main__":
     save("event", event(), 0.7)
     save("breakdown", breakdown(), 0.8)
     save("game_over", game_over(), 0.8)
+    save("music_loop", music_loop(), 0.6)

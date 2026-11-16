@@ -23,6 +23,7 @@ const SMOG_FULL_AT := 60.0
 const MAX_OPACITY := 0.85
 
 const NO_ROAD_COLOR := Color(0.95, 0.2, 0.15)
+const FIRE_COLOR := Color(1.0, 0.35, 0.0)
 const BROKEN_COLOR := Color(1.0, 0.85, 0.1)
 const NO_COAL_COLOR := Color(1.0, 0.55, 0.1)
 const COLD_COLOR := Color(0.3, 0.6, 1.0)
@@ -121,7 +122,7 @@ func legend() -> String:
 		Mode.SMOG:
 			return "Smog overlay\nDarker brown: more smog\nSmog drifts the way the brass arrow\nabove the Town Hall points"
 		Mode.UNREST:
-			return "Unrest overlay\nRed: no road access\nYellow: broken down\n" \
+			return "Unrest overlay\nBright orange: on fire\nRed: no road access\nYellow: broken down\n" \
 					+ "Orange: no Coal, Steam or (Tavern) Food\nBlue: cold home\n" \
 					+ "Purple: smoggy home\nGreen: calmed by a Tea Garden or Tavern"
 		Mode.LAND:
@@ -193,6 +194,10 @@ func _draw_unrest() -> void:
 func _trouble_color(building: Building) -> Color:
 	var def := building.def
 	if def.is_road or building == _grid.town_hall:
+		return CLEAR
+	if building.on_fire:
+		return FIRE_COLOR
+	if building.under_construction():
 		return CLEAR
 	if not building.road_access:
 		return NO_ROAD_COLOR

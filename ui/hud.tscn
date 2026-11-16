@@ -14,6 +14,7 @@
 [ext_resource type="Script" path="res://ui/event_dialog.gd" id="12_dialog"]
 [ext_resource type="Script" path="res://ui/council_panel.gd" id="13_council"]
 [ext_resource type="Script" path="res://ui/inventions_panel.gd" id="14_inventions"]
+[ext_resource type="Script" path="res://ui/minimap.gd" id="15_minimap"]
 
 [node name="HUD" type="CanvasLayer"]
 script = ExtResource("1_hud")
@@ -136,6 +137,21 @@ offset_bottom = -128.0
 grow_vertical = 0
 mouse_filter = 2
 script = ExtResource("7_card")
+
+[node name="Minimap" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -172.0
+offset_top = -172.0
+offset_right = -16.0
+offset_bottom = -16.0
+grow_horizontal = 0
+grow_vertical = 0
+script = ExtResource("15_minimap")
 
 [node name="StatsPanel" type="PanelContainer" parent="."]
 visible = false

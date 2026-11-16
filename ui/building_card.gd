@@ -62,6 +62,9 @@ static func describe_def(def: BuildingDef) -> String:
 		lines.append(def.description)
 	lines.append("")
 	lines.append("Size: %d x %d tiles" % [def.footprint.x, def.footprint.y])
+	var build_days := def.construction_days()
+	if build_days > 0:
+		lines.append("Takes %d %s to build" % [build_days, "day" if build_days == 1 else "days"])
 	if def.housing > 0:
 		lines.append("Houses %d citizens" % def.housing)
 	if def.workers > 0:
@@ -110,6 +113,8 @@ static func describe_def(def: BuildingDef) -> String:
 		lines.append("Calms homes within %d tiles" % def.effect_range)
 	if def.smog_clear_per_day > 0:
 		lines.append("Clears smog within %d tiles" % def.effect_range)
+	if def.fights_fire:
+		lines.append("Puts out fires within %d tiles" % def.effect_range)
 	if def.repairs:
 		lines.append("Repairs machines within %d tiles" % def.effect_range)
 	if def.citywide_calm > 0.0:
@@ -131,7 +136,12 @@ static func describe_building(building: Building) -> String:
 	if not def.demolishable:
 		lines.append(def.description)
 		return "\n".join(lines)
-	if not building.road_access:
+	if building.on_fire:
+		lines.append("ON FIRE")
+	elif building.under_construction():
+		lines.append("Under construction: %d %s left" % [building.construction_days_left,
+				"day" if building.construction_days_left == 1 else "days"])
+	elif not building.road_access:
 		lines.append("No road access - not working")
 	elif building.broken:
 		lines.append("Broken down - not working")

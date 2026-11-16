@@ -57,6 +57,7 @@ func _ready() -> void:
 		"I  inventions        N  day and night cycle on or off",
 		"Space  pause        Tab  speed",
 		"WASD / arrows  move        Q E  turn        Wheel  zoom",
+		"Click the minimap to look there",
 	])
 	keys.modulate = Color(1.0, 1.0, 1.0, 0.75)
 	keys.add_theme_font_size_override("font_size", 13)

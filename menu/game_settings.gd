@@ -1,18 +1,20 @@
 class_name GameSettings
 extends RefCounted
-## The player's settings: three volume levels, kept in a small file and
-## applied to the audio buses. The Ambience and Effects buses are created in
-## code, so the project needs no bus layout file.
+## The player's settings: four volume levels, kept in a small file and
+## applied to the audio buses. The Ambience, Effects and Music buses are
+## created in code, so the project needs no bus layout file.
 
 const PATH := "user://settings.cfg"
 const SECTION := "audio"
 const AMBIENCE_BUS := &"Ambience"
 const EFFECTS_BUS := &"Effects"
+const MUSIC_BUS := &"Music"
 ## The settings, in menu order: key in the file, label, audio bus.
 const VOLUMES: Array[Array] = [
 	["master", "Overall volume", &"Master"],
 	["ambience", "Wind and city", AMBIENCE_BUS],
 	["effects", "Sound effects", EFFECTS_BUS],
+	["music", "Music", MUSIC_BUS],
 ]
 
 ## Volume per key, from 0 (silent) to 1 (full).
@@ -23,7 +25,7 @@ static var _loaded: bool = false
 ## Make sure the buses exist, and read and apply the saved levels. Safe to
 ## call more than once; call it before playing anything.
 static func ensure_ready() -> void:
-	for bus: StringName in [AMBIENCE_BUS, EFFECTS_BUS]:
+	for bus: StringName in [AMBIENCE_BUS, EFFECTS_BUS, MUSIC_BUS]:
 		if AudioServer.get_bus_index(bus) == -1:
 			AudioServer.add_bus()
 			var index := AudioServer.bus_count - 1

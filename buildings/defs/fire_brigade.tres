@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="BuildingDef" format=3]
+
+[ext_resource type="Script" path="res://buildings/building_def.gd" id="1_def"]
+
+[resource]
+script = ExtResource("1_def")
+id = &"fire_brigade"
+display_name = "Fire Brigade"
+description = "Once Brasswick is a Town, anything that burns Coal can catch fire. A fire left alone spreads to its neighbours and burns a building to the ground in three days. A staffed Brigade puts out every fire within its reach by the end of the day."
+footprint = Vector2i(2, 2)
+style = 18
+category = 4
+tier = 1
+color = Color(0.62, 0.2, 0.16, 1)
+cost = 110
+workers = 3
+effect_range = 8
+fights_fire = true

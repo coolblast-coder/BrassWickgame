@@ -28,6 +28,15 @@ var terrain_factor: float = 1.0
 ## residents pay, and what they paid on the last simulated day.
 var land_value: float = 1.0
 var tax_paid: int = 0
+## True while the building is burning: it does nothing until the fire is
+## out. Change it through set_on_fire().
+var on_fire: bool = false
+## Days the fire has burned so far.
+var fire_days: int = 0
+## Days of building work still to do; 0 once the building is finished. An
+## unfinished building does nothing and costs no upkeep. Change it through
+## set_construction().
+var construction_days_left: int = 0
 ## Workers assigned to this building by the last daily simulation.
 var staff: int = 0
 ## False if this building needed Coal (or, for a Tavern, Food) on the last
@@ -54,7 +63,17 @@ var smoggy: bool = false
 ## Change it through set_broken().
 var broken: bool = false
 
+## The way the wind carries smoke, on the ground. Set by Main; every
+## building's plumes lean with it.
+static var smoke_drift: Vector3 = Vector3.ZERO
+
 var _model: Node3D
+## The plumes of smoke over this building's chimneys.
+var _plumes: Array[CPUParticles3D] = []
+## Timber scaffolding shown round an unfinished building.
+var _scaffold: Node3D
+## Flames and smoke shown while the building burns.
+var _fire: Node3D
 ## This home's window panes, in a fixed random order: the first ones light up
 ## first. Empty for buildings that house nobody.
 var _windows: Array[MeshInstance3D] = []
@@ -102,6 +121,13 @@ func setup(building_def: BuildingDef, at_origin: Vector2i, steps: int = 0,
 	transform = transform_for(def, origin, rotation_steps)
 	_model = BuildingMeshFactory.build(def, is_bridge)
 	add_child(_model)
+	for child in _model.get_children():
+		if child.has_meta(Smoke.POINT_META):
+			var plume := Smoke.make(float(child.get_meta(Smoke.POINT_META)))
+			plume.position = (child as Node3D).position
+			add_child(plume)
+			_plumes.append(plume)
+	lean_smoke()
 	if def.housing > 0:
 		for child in _model.get_children():
 			var pane := child as MeshInstance3D
@@ -116,6 +142,90 @@ func setup(building_def: BuildingDef, at_origin: Vector2i, steps: int = 0,
 			_windows[i] = _windows[j]
 			_windows[j] = swap
 		refresh_windows()
+
+
+## True while the building is still being built.
+func under_construction() -> bool:
+	return construction_days_left > 0
+
+
+## True if the building is finished, the road network reaches it and it is
+## not on fire: what it needs before it can do anything at all.
+func is_usable() -> bool:
+	return road_access and construction_days_left <= 0 and not on_fire
+
+
+## Set the building alight or put it out, and show it.
+func set_on_fire(value: bool) -> void:
+	if value == on_fire:
+		return
+	on_fire = value
+	fire_days = 0
+	if on_fire and _fire == null:
+		_fire = Smoke.make_fire(Vector2(def.footprint) * CityGrid.TILE_SIZE, _model_top())
+		add_child(_fire)
+	elif not on_fire and _fire != null:
+		_fire.queue_free()
+		_fire = null
+	refresh_smoke()
+
+
+## Set how many days of building work are left, and show it: an unfinished
+## building is see-through and stands in scaffolding.
+func set_construction(days: int) -> void:
+	construction_days_left = maxi(0, days)
+	var unfinished := construction_days_left > 0
+	for child in _model.get_children():
+		var part := child as MeshInstance3D
+		if part != null:
+			part.transparency = 0.6 if unfinished else 0.0
+	if unfinished and _scaffold == null:
+		_scaffold = _make_scaffold()
+		add_child(_scaffold)
+	elif not unfinished and _scaffold != null:
+		_scaffold.queue_free()
+		_scaffold = null
+
+
+## A cage of timber poles round the footprint, as tall as the model.
+func _make_scaffold() -> Node3D:
+	var scaffold := Node3D.new()
+	scaffold.name = "Scaffold"
+	var material := BuildingMeshFactory.get_material(Color(0.62, 0.48, 0.3))
+	var half := Vector2(def.footprint) * CityGrid.TILE_SIZE * 0.5 - Vector2(0.1, 0.1)
+	var height := maxf(_model_top() * 0.9, 1.5)
+	var parts: Array = []
+	for corner: Vector2 in [Vector2(-1, -1), Vector2(1, -1), Vector2(-1, 1), Vector2(1, 1)]:
+		parts.append([Vector3(0.12, height, 0.12), Vector3(corner.x * half.x, height * 0.5, corner.y * half.y)])
+	for level: float in [0.45, 0.9]:
+		for side: float in [-1.0, 1.0]:
+			parts.append([Vector3(half.x * 2.0, 0.08, 0.08), Vector3(0.0, height * level, side * half.y)])
+			parts.append([Vector3(0.08, 0.08, half.y * 2.0), Vector3(side * half.x, height * level, 0.0)])
+	for part: Array in parts:
+		var pole := MeshInstance3D.new()
+		var box := BoxMesh.new()
+		box.size = part[0]
+		pole.mesh = box
+		pole.position = part[1]
+		pole.material_override = material
+		scaffold.add_child(pole)
+	return scaffold
+
+
+## Smoke rises while the fires are lit: from a machine on a day it ran,
+## from a home that is lived in and has Coal.
+func refresh_smoke() -> void:
+	var burning := ran_today and not broken and not on_fire
+	if def.housing > 0:
+		burning = residents > 0 and fuelled and not on_fire
+	for plume in _plumes:
+		plume.emitting = burning
+
+
+## Lean this building's smoke with the wind.
+func lean_smoke() -> void:
+	for plume in _plumes:
+		Smoke.set_wind(plume, smoke_drift)
 
 
 ## Light a home's windows in proportion to how full it is. All of them go
@@ -241,7 +351,7 @@ func set_overlay(material: Material) -> void:
 ## today: it must be on the road network, and if it needs workers it must
 ## have run.
 func area_effect_active() -> bool:
-	if not road_access:
+	if not is_usable():
 		return false
 	return def.workers <= 0 or ran_today
 
@@ -262,6 +372,8 @@ func to_save() -> Dictionary:
 		"id": String(def.id), "x": origin.x, "y": origin.y, "rotation": rotation_steps,
 		"broken": broken, "paused": paused, "residents": residents, "staff": staff,
 		"fuelled": fuelled, "powered": powered, "ran_today": ran_today,
+		"construction": construction_days_left,
+		"on_fire": on_fire, "fire_days": fire_days,
 	}
 
 
@@ -274,4 +386,8 @@ func from_save(data: Dictionary) -> void:
 	fuelled = bool(data.get("fuelled", true))
 	powered = bool(data.get("powered", true))
 	ran_today = bool(data.get("ran_today", false))
+	set_construction(int(data.get("construction", 0)))
+	set_on_fire(bool(data.get("on_fire", false)))
+	fire_days = int(data.get("fire_days", 0))
 	refresh_windows()
+	refresh_smoke()

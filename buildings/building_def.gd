@@ -9,7 +9,7 @@ extends Resource
 enum Style { TENEMENT, GLASSHOUSE, COAL_PIT, BRASSWORKS, MECHANIC_YARD, TEA_GARDEN, ROAD, TOWN_HALL,
 		TOWNHOUSE, MARKET, TAVERN, SMOG_SCRUBBER,
 		AIRSHIP_DOCK, CLOCKTOWER, PUMP_STATION, WORKSHOP,
-		POWER_STATION, WAREHOUSE }
+		POWER_STATION, WAREHOUSE, FIRE_BRIGADE }
 
 ## Which group of the build menu this building is listed under. New
 ## categories go at the end, and need a name in BuildingCatalog.
@@ -38,6 +38,8 @@ enum Category { INFRASTRUCTURE, HOUSING, SUPPLY, INDUSTRY, SERVICES }
 
 @export_group("Economy")
 @export var cost: int = 0
+## Days a new one takes to build; -1 works it out from the footprint.
+@export var build_days: int = -1
 ## For roads: the cost of a tile laid on water, where it becomes a bridge.
 ## Roads are the only thing that can be built on water.
 @export var water_cost: int = 0
@@ -74,6 +76,19 @@ enum Category { INFRASTRUCTURE, HOUSING, SUPPLY, INDUSTRY, SERVICES }
 ## Extra room for every stockpile while connected (Warehouse).
 @export var storage: int = 0
 
+## How many days a newly placed building of this kind takes to finish.
+## Roads are laid at once; otherwise bigger buildings take longer.
+func construction_days() -> int:
+	if is_road:
+		return 0
+	if build_days >= 0:
+		return build_days
+	var tiles := footprint.x * footprint.y
+	if tiles <= 4:
+		return 1
+	return 2 if tiles <= 9 else 3
+
+
 @export_group("Ground")
 ## Extra output, as a share of normal, for a building standing wholly on a
 ## coal seam (Coal Pit) or on fertile soil (Glasshouse); one standing partly
@@ -88,6 +103,9 @@ enum Category { INFRASTRUCTURE, HOUSING, SUPPLY, INDUSTRY, SERVICES }
 @export var can_break: bool = false
 ## Repairs broken buildings within `effect_range` for free (Mechanic's Yard).
 @export var repairs: bool = false
+## Puts out fires within `effect_range` at the end of each day, while
+## staffed (Fire Brigade).
+@export var fights_fire: bool = false
 
 @export_group("Smog and area effects")
 ## Smog added per day around the building, on days it runs.

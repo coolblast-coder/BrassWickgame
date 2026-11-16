@@ -123,6 +123,7 @@ func _gather() -> Array:
 		advice.append(["Buildings stand idle without Steam: build Power Stations.", null])
 
 	# Problems with particular buildings, grouped by kind.
+	var alight: Dictionary[BuildingDef, Array] = {}
 	var cut_off: Dictionary[BuildingDef, Array] = {}
 	var broken: Dictionary[BuildingDef, Array] = {}
 	var unstaffed: Dictionary[BuildingDef, Array] = {}
@@ -130,6 +131,11 @@ func _gather() -> Array:
 	for building in _grid.all_buildings:
 		var def := building.def
 		if def.is_road or building == _grid.town_hall:
+			continue
+		if building.on_fire:
+			_group(alight, building)
+			continue
+		if building.under_construction():
 			continue
 		if not building.road_access:
 			_group(cut_off, building)
@@ -139,6 +145,8 @@ func _gather() -> Array:
 			_group(unstaffed, building)
 		if def.housing > 0 and building.smoggy:
 			smoggy_homes.append(building)
+	_advise_groups(advice, alight, "is on fire: put it out (F) or build a Fire Brigade",
+			"are on fire: put them out (F) or build a Fire Brigade")
 	_advise_groups(advice, cut_off, "has no road to the Town Hall", "have no road to the Town Hall")
 	_advise_groups(advice, broken, "is broken: repair it (F)", "are broken: repair them (F)")
 	_advise_groups(advice, unstaffed, "has no workers: build homes", "have no workers: build homes")

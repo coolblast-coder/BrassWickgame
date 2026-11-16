@@ -13,6 +13,7 @@ category = 4
 tier = 3
 color = Color(0.72, 0.62, 0.48, 1)
 cost = 500
+build_days = 4
 steam_per_day = 2
 unique = true
 citywide_calm = 2.0

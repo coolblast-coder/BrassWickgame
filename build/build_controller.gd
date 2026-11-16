@@ -189,7 +189,19 @@ func toggle_selected_power() -> void:
 ## Pay to repair the selected building at once, if it is broken and the city
 ## can afford it.
 func repair_selected() -> bool:
-	if selected_building == null or not selected_building.broken:
+	if selected_building == null or not is_instance_valid(selected_building):
+		return false
+	if selected_building.on_fire:
+		# Putting a fire out by hand comes before any repair.
+		if not _city.can_afford(CitySim.FIRE_FIGHT_COST):
+			feedback.emit(&"error")
+			return false
+		selected_building.set_on_fire(false)
+		_city.crowns -= CitySim.FIRE_FIGHT_COST
+		feedback.emit(&"repair")
+		selection_changed.emit(selected_building)
+		return true
+	if not selected_building.broken:
 		return false
 	if not _city.can_afford(CitySim.REPAIR_COST):
 		feedback.emit(&"error")
@@ -304,7 +316,8 @@ func try_place() -> bool:
 		feedback.emit(&"error")
 		return false
 	_city.crowns -= selected_def.cost
-	place_building(selected_def, placement_origin(), rotation_steps)
+	var building := place_building(selected_def, placement_origin(), rotation_steps)
+	building.set_construction(selected_def.construction_days())
 	feedback.emit(&"build")
 	return true
 

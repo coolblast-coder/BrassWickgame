@@ -23,6 +23,10 @@ choices events now offer. Events here still take the "do nothing" outcome (a str
 runs its full length, a boiler bursts) and the Airship Trader gives Crowns
 or Food at random, as the game did before choices were added.
 
+Two later rules are missing too, and both make the real game harder than
+this model: new buildings take one to four days to build (here they work
+at once), and from the Town tier buildings can catch fire.
+
 The generated terrain is not modelled either, since the model has no map.
 In the game its effects are all bonuses on top of what is modelled here
 (Coal Pits on seams, Glasshouses on fertile soil, Pump Stations by the

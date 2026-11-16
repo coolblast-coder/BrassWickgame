@@ -144,6 +144,8 @@ var citizens_without_goods: int = 0
 var unpowered_buildings: int = 0
 ## Homes that got no Coal for heating.
 var cold_homes: int = 0
+## Buildings on fire at the end of the last simulated day.
+var burning_buildings: int = 0
 ## Machines that got no Coal and produced nothing.
 var stopped_machines: int = 0
 ## Buildings that were broken down during the last simulated day.

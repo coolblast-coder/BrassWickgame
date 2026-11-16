@@ -42,7 +42,11 @@ func show_building(building: Building) -> void:
 		hide()
 		return
 	_label.text = describe(building)
-	_repair_button.visible = building.broken
+	_repair_button.visible = building.broken or building.on_fire
+	if building.on_fire:
+		_repair_button.text = "F  Put out the fire (%d Crowns)" % CitySim.FIRE_FIGHT_COST
+	else:
+		_repair_button.text = "F  Repair (%d Crowns)" % CitySim.REPAIR_COST
 	_power_button.visible = building.def.workers > 0
 	_power_button.text = "P  Switch on" if building.paused else "P  Switch off"
 	show()
@@ -57,6 +61,13 @@ static func describe(building: Building) -> String:
 		lines.append("Cannot be demolished.")
 		return "\n".join(lines)
 
+	if building.on_fire:
+		var days_left := CitySim.FIRE_BURN_DAYS - building.fire_days
+		lines.append("ON FIRE - burns down in %d %s" % [days_left, "day" if days_left == 1 else "days"])
+		lines.append("  Put it out, or build a Fire Brigade in reach.")
+	if building.under_construction():
+		lines.append("UNDER CONSTRUCTION: %d %s left" % [building.construction_days_left,
+				"day" if building.construction_days_left == 1 else "days"])
 	if building.road_access:
 		lines.append("Road access: yes")
 	else:
@@ -139,6 +150,9 @@ static func describe(building: Building) -> String:
 		lines.append("Calms homes within %d tiles%s." % [def.effect_range, condition])
 	if def.smog_clear_per_day > 0:
 		lines.append("Clears smog within %d tiles%s." % [def.effect_range, condition])
+	if def.fights_fire:
+		lines.append("Puts out fires within %d tiles by the end" % def.effect_range)
+		lines.append("  of each day, while staffed.")
 	if def.repairs:
 		lines.append("Repairs breakdowns within %d tiles for free," % def.effect_range)
 		lines.append("  at the end of each day, while staffed.")

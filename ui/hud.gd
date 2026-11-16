@@ -20,6 +20,7 @@ extends CanvasLayer
 @onready var policies_panel: PoliciesPanel = $PoliciesPanel
 @onready var _event_dialog: EventDialog = $EventDialog
 @onready var inventions_panel: InventionsPanel = $InventionsPanel
+@onready var minimap: Minimap = $Minimap
 
 var _city: CityState
 var _events: CityEvents
@@ -253,6 +254,8 @@ func _refresh_warnings() -> void:
 		warnings.append("Without Steam: %d" % _city.unpowered_buildings)
 	if _city.cold_homes > 0:
 		warnings.append("Cold homes: %d" % _city.cold_homes)
+	if _city.burning_buildings > 0:
+		warnings.append("ON FIRE: %d" % _city.burning_buildings)
 	if _city.broken_buildings > 0:
 		warnings.append("Broken down: %d" % _city.broken_buildings)
 	if _city.stopped_machines > 0:

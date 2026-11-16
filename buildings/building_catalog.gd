@@ -16,6 +16,7 @@ const PATHS: Array[String] = [
 	"res://buildings/defs/brassworks.tres",
 	"res://buildings/defs/mechanic_yard.tres",
 	"res://buildings/defs/tea_garden.tres",
+	"res://buildings/defs/fire_brigade.tres",
 	"res://buildings/defs/townhouse.tres",
 	"res://buildings/defs/market.tres",
 	"res://buildings/defs/workshop.tres",

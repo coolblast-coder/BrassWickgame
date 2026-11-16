@@ -1,5 +1,11 @@
 class_name CitySim
 extends RefCounted
+
+## A fire has broken out in `building`, or spread to it.
+signal fire_started(building: Building)
+## A fire was left to burn and the building is gone. `display_name` is what
+## it was.
+signal burned_down(display_name: String)
 ## The daily city simulation. Citizens are numbers, not agents: once per
 ## in-game day run_day() reads the buildings on the grid and updates the
 ## city's stockpiles. All constants are tuning values.
@@ -48,6 +54,23 @@ const TRADE_COAL_RESERVE := 100
 
 ## Room for each stockpile before any Warehouse is built.
 const BASE_STORAGE := 300
+
+## Fires only break out once the city reaches this tier (Town).
+const FIRE_TIER := 1
+## Daily chance that a fire breaks out somewhere: the base, plus a little
+## for every building with a fire lit (a running machine, a heated home), up
+## to the maximum. One fire at most starts per day.
+const FIRE_BASE_CHANCE := 0.005
+const FIRE_CHANCE_PER_HEARTH := 0.001
+const FIRE_MAX_CHANCE := 0.12
+## Daily chance that a burning building sets light to a neighbour.
+const FIRE_SPREAD_CHANCE := 0.35
+## A building burns down at the end of this many days alight.
+const FIRE_BURN_DAYS := 3
+## Crowns to have the selected building's fire put out by hand.
+const FIRE_FIGHT_COST := 30
+const UNREST_PER_FIRE := 3.0
+const UNREST_FIRE_MAX := 12.0
 
 ## Crowns to repair one broken building by hand.
 const REPAIR_COST := 20
@@ -143,6 +166,10 @@ func _take_steam(building: Building) -> bool:
 ## Simulate one day. `day` is the day that is ending.
 func run_day(day: int) -> void:
 	_season = Seasons.in_effect(day, _city.tier)
+	# Building work goes on first, so something finished today works today.
+	for building in _grid.all_buildings:
+		if building.under_construction():
+			building.set_construction(building.construction_days_left - 1)
 	_smog.wind = Seasons.WIND[Seasons.of_day(day)]
 	var crowns_before := _city.crowns
 	var coal_before := _city.coal
@@ -162,8 +189,10 @@ func run_day(day: int) -> void:
 	# one day of output unless the player pays to fix it at once.
 	_repair_with_yards()
 	_roll_breakdowns()
+	_update_fires()
 	for building in _grid.all_buildings:
 		building.refresh_windows()
+		building.refresh_smoke()
 	_city.crowns_change = _city.crowns - crowns_before
 	_city.coal_change = _city.coal - coal_before
 	_city.food_change = _city.food - food_before
@@ -182,7 +211,7 @@ func _update_population() -> void:
 	var homes: Array[Building] = []
 	for building in _grid.all_buildings:
 		building.residents = 0
-		if building.def.housing > 0 and building.road_access:
+		if building.def.housing > 0 and building.is_usable():
 			capacity += building.def.housing
 			homes.append(building)
 	_city.housing_capacity = capacity
@@ -233,7 +262,7 @@ func _assign_workers() -> void:
 			var def := building.def
 			if def.essential != essential or def.workers <= 0:
 				continue
-			if building.road_access and not building.broken and not building.paused:
+			if building.is_usable() and not building.broken and not building.paused:
 				building.staff = mini(def.workers, available)
 				available -= building.staff
 	_city.workers_total = total
@@ -271,6 +300,9 @@ func _run_economy() -> void:
 		var def := building.def
 		if def.is_road or building == _grid.town_hall:
 			continue
+		if building.under_construction():
+			# Not yet built: no upkeep, no work.
+			continue
 		upkeep += UPKEEP_BY_TIER[_city.tier]
 		building.fuelled = true
 		building.ran_today = false
@@ -285,7 +317,7 @@ func _run_economy() -> void:
 			# Produces nothing and burns no Coal until repaired.
 			broken += 1
 			continue
-		if not building.road_access or building.paused:
+		if not building.is_usable() or building.paused:
 			continue
 		if def.trade_coal > 0:
 			# Trades after every home and machine has its Coal, further down.
@@ -429,7 +461,7 @@ func _run_economy() -> void:
 	# Nothing can be kept beyond what the city has room to store.
 	var room := BASE_STORAGE
 	for building in _grid.all_buildings:
-		if building.road_access:
+		if building.is_usable():
 			room += building.def.storage
 	if _invented(Inventions.COLD_STORES):
 		room = roundi(room * Inventions.STORES_FACTOR)
@@ -543,7 +575,7 @@ func _update_unrest() -> void:
 	var calmed_homes := 0
 	var tavern_homes := 0
 	for building in _grid.all_buildings:
-		if building.def.housing <= 0 or not building.road_access:
+		if building.def.housing <= 0 or not building.is_usable():
 			continue
 		homes += 1
 		if building.smoggy:
@@ -571,6 +603,11 @@ func _update_unrest() -> void:
 	change += _cause(causes, "Idle workers", UNREST_IDLE * _share(idle_workers, _city.workers_total))
 	change += _cause(causes, "Broken buildings",
 			minf(UNREST_BROKEN_MAX, UNREST_PER_BROKEN * _city.broken_buildings))
+	var fires := 0
+	for building in _grid.all_buildings:
+		if building.on_fire:
+			fires += 1
+	change += _cause(causes, "Fires", minf(UNREST_FIRE_MAX, UNREST_PER_FIRE * fires))
 	if _city.crowns < 0:
 		change += _cause(causes, "Debt", UNREST_DEBT)
 	change += _cause(causes, "Tea Gardens", -UNREST_TEA_GARDEN * _share(calmed_homes, homes))
@@ -617,7 +654,7 @@ func _share(part: int, whole: int) -> float:
 func _repair_with_yards() -> void:
 	var repair_areas: Array[Rect2i] = []
 	for building in _grid.all_buildings:
-		if building.def.repairs and building.road_access and not building.broken \
+		if building.def.repairs and building.is_usable() and not building.broken \
 				and building.staff > 0:
 			var reach := building.def.effect_range
 			if _invented(Inventions.STANDARD_PARTS):
@@ -633,6 +670,82 @@ func _repair_with_yards() -> void:
 			if area.intersects(footprint):
 				building.set_broken(false)
 				break
+
+
+## One day of fire: Brigades put out what they can reach, the rest burn on,
+## spread, and in the end bring the building down; then a new fire may
+## start.
+func _update_fires() -> void:
+	var covered: Array[Rect2i] = []
+	for building in _grid.all_buildings:
+		if building.def.fights_fire and building.is_usable() and building.staff > 0:
+			covered.append(building.footprint_rect().grow(building.def.effect_range))
+
+	var burning: Array[Building] = []
+	for building in _grid.all_buildings:
+		if building.on_fire:
+			burning.append(building)
+	var lost: Array[Building] = []
+	for building in burning:
+		if _in_any(covered, building.footprint_rect()):
+			building.set_on_fire(false)
+			# A machine that has been on fire needs repairing before it runs.
+			if building.def.can_break:
+				building.set_broken(true)
+			continue
+		building.fire_days += 1
+		if building.fire_days >= FIRE_BURN_DAYS:
+			lost.append(building)
+		elif randf() < FIRE_SPREAD_CHANCE:
+			var neighbour := _something_to_burn(building)
+			if neighbour != null:
+				neighbour.set_on_fire(true)
+				fire_started.emit(neighbour)
+	for building in lost:
+		burned_down.emit(building.def.display_name)
+		_grid.remove_building(building)
+		building.queue_free()
+
+	if _city.tier >= FIRE_TIER:
+		var hearths: Array[Building] = []
+		for building in _grid.all_buildings:
+			var lit := building.ran_today
+			if building.def.housing > 0:
+				lit = building.fuelled and building.residents > 0
+			if lit and building.def.coal_per_day > 0 and building.is_usable():
+				hearths.append(building)
+		var chance := minf(FIRE_MAX_CHANCE, FIRE_BASE_CHANCE + FIRE_CHANCE_PER_HEARTH * hearths.size())
+		if not hearths.is_empty() and randf() < chance:
+			var victim: Building = hearths.pick_random()
+			victim.set_on_fire(true)
+			fire_started.emit(victim)
+
+	var still_burning := 0
+	for building in _grid.all_buildings:
+		if building.on_fire:
+			still_burning += 1
+	_city.burning_buildings = still_burning
+
+
+func _in_any(areas: Array[Rect2i], footprint: Rect2i) -> bool:
+	for area in areas:
+		if area.intersects(footprint):
+			return true
+	return false
+
+
+## A building next to `source` that a fire could spread to; null if there
+## is none. Roads, the Town Hall and things already alight do not catch.
+func _something_to_burn(source: Building) -> Building:
+	var reach := source.footprint_rect().grow(1)
+	var candidates: Array[Building] = []
+	for building in _grid.all_buildings:
+		if building == source or building.on_fire or building.def.is_road \
+				or not building.def.demolishable:
+			continue
+		if reach.intersects(building.footprint_rect()):
+			candidates.append(building)
+	return null if candidates.is_empty() else candidates.pick_random()
 
 
 ## Today's chance for each machine in the city to break down.

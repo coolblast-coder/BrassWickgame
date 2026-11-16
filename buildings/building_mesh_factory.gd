@@ -77,6 +77,8 @@ static func build(def: BuildingDef, bridge: bool = false) -> Node3D:
 			_power_station(root, w, d, def.color)
 		BuildingDef.Style.WAREHOUSE:
 			_warehouse(root, w, d, def.color)
+		BuildingDef.Style.FIRE_BRIGADE:
+			_fire_brigade(root, w, d, def.color)
 		BuildingDef.Style.ROAD:
 			# Full tile, no margin, so neighbouring road tiles join up.
 			var full_w := w + MARGIN * 2.0
@@ -118,6 +120,8 @@ static func _tenement(root: Node3D, w: float, d: float, color: Color) -> void:
 		var x := side * bw * 0.3
 		_box(root, Vector3(0.45, 1.5, 0.45), Vector3(x, top + 0.9, -bd * 0.22), DARK_BRICK)
 		_cylinder(root, 0.13, 0.3, Vector3(x, top + 1.8, -bd * 0.22), TERRACOTTA)
+		if side < 0.0:
+			_smoke(root, Vector3(x, top + 2.0, -bd * 0.22), 0.3)
 	# Windows: three per floor, except where the front door is.
 	var pane := Vector2(0.5, 0.75)
 	var upper := base + h * 0.75
@@ -156,6 +160,8 @@ static func _townhouse(root: Node3D, w: float, d: float, color: Color) -> void:
 		var x := side * bw * 0.36
 		_box(root, Vector3(0.45, 1.9, 0.6), Vector3(x, top + 1.0, bz), DARK_BRICK)
 		_cylinder(root, 0.12, 0.3, Vector3(x, top + 2.1, bz - 0.15), TERRACOTTA)
+		if side < 0.0:
+			_smoke(root, Vector3(x, top + 2.3, bz), 0.4)
 		_cylinder(root, 0.12, 0.3, Vector3(x, top + 2.1, bz + 0.15), TERRACOTTA)
 	# The bay: two floors of windows above the door.
 	var bay_w := 1.2
@@ -241,6 +247,7 @@ static func _tavern(root: Node3D, w: float, d: float, color: Color) -> void:
 	_prism(root, Vector3(bw + jetty + 0.2, 1.3, bd + jetty + 0.2), Vector3(0.0, top + 0.65, 0.0), color)
 	_box(root, Vector3(0.5, 1.9, 0.5), Vector3(-bw * 0.3, top + 0.8, -bd * 0.2), DARK_BRICK)
 	_cylinder(root, 0.13, 0.3, Vector3(-bw * 0.3, top + 1.9, -bd * 0.2), TERRACOTTA)
+	_smoke(root, Vector3(-bw * 0.3, top + 2.1, -bd * 0.2), 0.35)
 	# Beams on the upper floor, front and back.
 	for side: float in [-1.0, 1.0]:
 		for n in 4:
@@ -403,6 +410,7 @@ static func _pump_station(root: Node3D, w: float, d: float, color: Color) -> voi
 	_window(root, Vector3(0.4, 0.5, 0.08), house + Vector3(0.35, 1.3, 0.92))
 	_cylinder(root, 0.2, 3.6, house + Vector3(-0.5, 1.8, -0.6), DARK_BRICK, 0.0, 0.14)
 	_cylinder(root, 0.17, 0.15, house + Vector3(-0.5, 3.65, -0.6), SOOT)
+	_smoke(root, house + Vector3(-0.5, 3.8, -0.6), 0.5)
 	# Rocking beam from the house out over the well at the front left.
 	var well := Vector3(house.x, ground, d * 0.3)
 	_cylinder(root, 0.5, 0.35, well + Vector3(0.0, 0.175, 0.0), STONE)
@@ -445,6 +453,7 @@ static func _workshop(root: Node3D, w: float, d: float, color: Color) -> void:
 	var stack := Vector3(bw * 0.5 - 0.3, 0.0, hall_z - bd * 0.5 + 0.4)
 	_cylinder(root, 0.3, 5.2, stack + Vector3(0.0, 2.6, 0.0), DARK_BRICK, 0.0, 0.2)
 	_cylinder(root, 0.24, 0.2, stack + Vector3(0.0, 5.3, 0.0), BRASS, 0.7)
+	_smoke(root, stack + Vector3(0.0, 5.5, 0.0), 0.8)
 	# Tall windows down both sides, small ones at the back.
 	var pane := Vector2(0.55, 1.4)
 	for side: float in [-1.0, 1.0]:
@@ -491,6 +500,7 @@ static func _power_station(root: Node3D, w: float, d: float, color: Color) -> vo
 		_cylinder(root, 0.55, 9.0, stack + Vector3(0.0, 4.5, 0.0), DARK_BRICK, 0.0, 0.34)
 		_cylinder(root, 0.42, 0.25, stack + Vector3(0.0, 7.6, 0.0), STONE)
 		_cylinder(root, 0.39, 0.3, stack + Vector3(0.0, 9.1, 0.0), BRASS, 0.7)
+		_smoke(root, stack + Vector3(0.0, 9.4, 0.0), 1.0)
 	# Tall windows along the front and back, a furnace door glowing low down.
 	var pane := Vector2(0.6, 1.6)
 	_windows_z(root, 5, bw, ground + h * 0.6, front + 0.02, pane)
@@ -555,6 +565,41 @@ static func _warehouse(root: Node3D, w: float, d: float, color: Color) -> void:
 	_cylinder(root, 0.22, 0.55, Vector3(bw * 0.38, 0.275, yard_z), WOOD.darkened(0.2))
 	_cylinder(root, 0.22, 0.55, Vector3(bw * 0.38 - 0.5, 0.275, yard_z + 0.1), WOOD.darkened(0.2))
 	_capsule(root, 0.2, 0.6, Vector3(bw * 0.2, 0.2, yard_z + 0.15), PLASTER.darkened(0.15))
+
+
+static func _fire_brigade(root: Node3D, w: float, d: float, color: Color) -> void:
+	# Red brick engine house with two tall doors, and a hose tower at the
+	# back with a brass bell under its pointed roof.
+	var bw := w - 0.4
+	var bd := d - 0.9
+	var bz := -0.25
+	var base := 0.25
+	var h := 2.6
+	var top := base + h
+	var front := bz + bd * 0.5
+	_box(root, Vector3(bw + 0.15, base, bd + 0.15), Vector3(0.0, base * 0.5, bz), STONE)
+	_box(root, Vector3(bw, h, bd), Vector3(0.0, base + h * 0.5, bz), color)
+	_box(root, Vector3(bw + 0.14, 0.18, bd + 0.14), Vector3(0.0, top - 0.09, bz), STONE)
+	_prism(root, Vector3(bw + 0.25, 0.9, bd + 0.25), Vector3(0.0, top + 0.45, bz), SLATE)
+	# Engine doors, with a stone arch over each and a lamp between them.
+	for side: float in [-1.0, 1.0]:
+		_box(root, Vector3(1.1, 1.9, 0.08), Vector3(side * 0.75, base + 0.95, front + 0.03), color.darkened(0.45))
+		_box(root, Vector3(1.25, 0.16, 0.12), Vector3(side * 0.75, base + 1.98, front + 0.03), STONE)
+		_windows_x(root, 2, bd, base + h * 0.7, side * (bw * 0.5 + 0.02), Vector2(0.45, 0.5), bz)
+	_window(root, Vector3(0.22, 0.26, 0.1), Vector3(0.0, base + 2.2, front + 0.06))
+	# Hose tower.
+	var tower := Vector3(bw * 0.5 - 0.55, 0.0, bz - bd * 0.5 + 0.55)
+	var tower_h := 5.6
+	_box(root, Vector3(1.0, tower_h, 1.0), tower + Vector3(0.0, tower_h * 0.5, 0.0), color)
+	_box(root, Vector3(1.2, 0.16, 1.2), tower + Vector3(0.0, tower_h - 1.1, 0.0), STONE)
+	for corner: Vector2 in [Vector2(-1, -1), Vector2(1, -1), Vector2(-1, 1), Vector2(1, 1)]:
+		_box(root, Vector3(0.14, 0.9, 0.14), tower + Vector3(corner.x * 0.43, tower_h + 0.45, corner.y * 0.43), color)
+	_cylinder(root, 0.26, 0.4, tower + Vector3(0.0, tower_h + 0.45, 0.0), BRASS, 0.7, 0.1)
+	_pyramid(root, 1.3, 1.0, tower + Vector3(0.0, tower_h + 1.4, 0.0), SLATE)
+	# Water butt and a ladder against the wall.
+	_cylinder(root, 0.28, 0.7, Vector3(-bw * 0.5 + 0.1, 0.35, front + 0.35), WOOD.darkened(0.2))
+	var ladder := _box(root, Vector3(0.4, 2.4, 0.06), Vector3(-bw * 0.5 - 0.05, 1.3, bz), WOOD)
+	ladder.rotation.z = -0.12
 
 
 static func _glasshouse(root: Node3D, w: float, d: float, color: Color) -> void:
@@ -644,6 +689,7 @@ static func _coal_pit(root: Node3D, w: float, d: float, color: Color) -> void:
 	var stack := house + Vector3(0.6, 0.0, -0.5)
 	_cylinder(root, 0.24, 3.6, stack + Vector3(0.0, ground + 1.8, 0.0), DARK_BRICK, 0.0, 0.16)
 	_cylinder(root, 0.2, 0.15, stack + Vector3(0.0, ground + 3.65, 0.0), SOOT)
+	_smoke(root, stack + Vector3(0.0, ground + 3.8, 0.0), 0.7)
 	# Rails from the shaft to the front, with a loaded cart.
 	var rail_len := d * 0.5 - shaft.z - 0.9
 	var rail_z := shaft.z + 0.9 + rail_len * 0.5
@@ -684,6 +730,7 @@ static func _brassworks(root: Node3D, w: float, d: float, color: Color) -> void:
 		_cylinder(root, 0.5, 7.5, stack + Vector3(0.0, 3.75, 0.0), DARK_BRICK, 0.0, 0.32)
 		_cylinder(root, 0.4, 0.25, stack + Vector3(0.0, 6.4, 0.0), STONE)
 		_cylinder(root, 0.37, 0.3, stack + Vector3(0.0, 7.6, 0.0), BRASS, 0.7)
+		_smoke(root, stack + Vector3(0.0, 7.9, 0.0), 1.0)
 	# Windows and the loading door.
 	var pane := Vector2(0.6, 1.2)
 	for side: float in [-1.0, 1.0]:
@@ -879,6 +926,15 @@ static func _pyramid(root: Node3D, side: float, height: float, center: Vector3,
 static func _lamp(root: Node3D, foot: Vector3, height: float) -> void:
 	_cylinder(root, 0.04, height, foot + Vector3(0.0, height * 0.5, 0.0), IRON)
 	_window(root, Vector3(0.18, 0.2, 0.18), foot + Vector3(0.0, height + 0.1, 0.0))
+
+
+## Mark the top of a chimney: Building puts a plume of smoke there. A
+## `strength` of 1 is a factory stack; homes are much fainter.
+static func _smoke(root: Node3D, top: Vector3, strength: float) -> void:
+	var point := Marker3D.new()
+	point.position = top
+	point.set_meta(Smoke.POINT_META, strength)
+	root.add_child(point)
 
 
 ## A ring lying flat (its hole points up) until rotated.
