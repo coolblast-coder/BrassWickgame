@@ -9,10 +9,16 @@ extends PanelContainer
 signal repair_pressed
 ## The Switch off / Switch on button was clicked for the building on show.
 signal power_pressed
+## The Upgrade button was clicked for the building on show.
+signal upgrade_pressed
+## The Move button was clicked for the building on show.
+signal move_pressed
 
 var _label: Label
 var _repair_button: Button
 var _power_button: Button
+var _upgrade_button: Button
+var _move_button: Button
 
 
 func _ready() -> void:
@@ -25,7 +31,7 @@ func _ready() -> void:
 	_label = Label.new()
 	column.add_child(_label)
 	_repair_button = Button.new()
-	_repair_button.text = "F  Repair (%d Crowns)" % CitySim.REPAIR_COST
+	_repair_button.text = "%s  Repair (%d Crowns)" % [GameSettings.key_label(&"repair"), CitySim.REPAIR_COST]
 	_repair_button.focus_mode = Control.FOCUS_NONE
 	_repair_button.pressed.connect(func() -> void: repair_pressed.emit())
 	column.add_child(_repair_button)
@@ -33,6 +39,14 @@ func _ready() -> void:
 	_power_button.focus_mode = Control.FOCUS_NONE
 	_power_button.pressed.connect(func() -> void: power_pressed.emit())
 	column.add_child(_power_button)
+	_upgrade_button = Button.new()
+	_upgrade_button.focus_mode = Control.FOCUS_NONE
+	_upgrade_button.pressed.connect(func() -> void: upgrade_pressed.emit())
+	column.add_child(_upgrade_button)
+	_move_button = Button.new()
+	_move_button.focus_mode = Control.FOCUS_NONE
+	_move_button.pressed.connect(func() -> void: move_pressed.emit())
+	column.add_child(_move_button)
 	hide()
 
 
@@ -44,12 +58,37 @@ func show_building(building: Building) -> void:
 	_label.text = describe(building)
 	_repair_button.visible = building.broken or building.on_fire
 	if building.on_fire:
-		_repair_button.text = "F  Put out the fire (%d Crowns)" % CitySim.FIRE_FIGHT_COST
+		_repair_button.text = "%s  Put out the fire (%d Crowns)" % [GameSettings.key_label(&"repair"), CitySim.FIRE_FIGHT_COST]
 	else:
-		_repair_button.text = "F  Repair (%d Crowns)" % CitySim.REPAIR_COST
+		_repair_button.text = "%s  Repair (%d Crowns)" % [GameSettings.key_label(&"repair"), CitySim.REPAIR_COST]
 	_power_button.visible = building.def.workers > 0
-	_power_button.text = "P  Switch on" if building.paused else "P  Switch off"
+	_power_button.text = "%s  %s" % [GameSettings.key_label(&"toggle_power"),
+			"Switch on" if building.paused else "Switch off"]
+	_show_upgrade(building)
+	_move_button.visible = building.def.demolishable and not building.def.is_road
+	_move_button.disabled = building.under_construction() or building.on_fire
+	_move_button.text = "%s  Move (%d Crowns)" % [GameSettings.key_label(&"move_building"),
+			ceili(building.def.cost * BuildController.MOVE_COST_SHARE)]
 	show()
+
+
+## Offer the upgrade, if this kind of building has one. The button says
+## what it costs, or what is still missing.
+func _show_upgrade(building: Building) -> void:
+	var target: BuildingDef = null
+	if building.def.upgrade_to != &"":
+		target = BuildingCatalog.by_id(building.def.upgrade_to)
+	_upgrade_button.visible = target != null
+	if target == null:
+		return
+	var locked := BuildingCard.city_tier < target.tier
+	_upgrade_button.disabled = locked or building.under_construction() or building.on_fire
+	if locked:
+		_upgrade_button.text = "Upgrade to %s: needs a %s" % [
+				target.display_name, CityState.TIER_NAMES[target.tier]]
+	else:
+		_upgrade_button.text = "%s  Upgrade to %s (%d Crowns)" % [GameSettings.key_label(&"upgrade"),
+				target.display_name, maxi(0, target.cost - building.def.cost)]
 
 
 static func describe(building: Building) -> String:

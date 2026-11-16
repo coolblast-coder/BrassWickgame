@@ -125,6 +125,10 @@ static func describe_def(def: BuildingDef) -> String:
 		lines.append("Can break down")
 	if def.unique:
 		lines.append("One per city")
+	if def.upgrade_to != &"":
+		var upgrade := BuildingCatalog.by_id(def.upgrade_to)
+		if upgrade != null:
+			lines.append("Can be upgraded to a %s where it stands" % upgrade.display_name)
 	if def.demolishable and not def.is_road:
 		lines.append("Upkeep: %d Crowns a day" % CitySim.UPKEEP_BY_TIER[city_tier])
 	return "\n".join(lines)

@@ -34,6 +34,8 @@ var _hovered_building: Building
 ## The hint line's text for the tool in hand, before any ground bonus.
 var _hint_base: String = ""
 var _ground_bonus: float = 1.0
+## What the building being placed would reach, as a short note.
+var _reach_note: String = ""
 ## The ground under the map, to name the tile under the mouse.
 var _terrain: TerrainMap
 ## True while no build or demolish tool is in hand.
@@ -44,6 +46,10 @@ var _idle: bool = true
 signal repair_pressed
 ## The Switch off / on button in the info panel was clicked.
 signal power_pressed
+## The Upgrade button in the info panel was clicked.
+signal upgrade_pressed
+## The Move button in the info panel was clicked.
+signal move_pressed
 
 
 ## The Restart button on the end screen was clicked.
@@ -58,6 +64,8 @@ signal jump_requested(world_position: Vector3)
 func _ready() -> void:
 	_info_panel.repair_pressed.connect(func() -> void: repair_pressed.emit())
 	_info_panel.power_pressed.connect(func() -> void: power_pressed.emit())
+	_info_panel.upgrade_pressed.connect(func() -> void: upgrade_pressed.emit())
+	_info_panel.move_pressed.connect(func() -> void: move_pressed.emit())
 	_game_over_panel.restart_pressed.connect(func() -> void: restart_pressed.emit())
 	_game_over_panel.continue_pressed.connect(_on_keep_playing)
 	_game_over_panel.main_menu_pressed.connect(func() -> void: main_menu_pressed.emit())
@@ -66,25 +74,29 @@ func _ready() -> void:
 	build_bar.menu_pressed.connect(game_menu.open)
 	build_bar.policies_pressed.connect(_toggle_policies)
 	build_bar.inventions_pressed.connect(_toggle_inventions)
+	game_menu.controls_changed.connect(build_bar.refresh_keys)
 	_advisor.jump_requested.connect(func(where: Vector3) -> void: jump_requested.emit(where))
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	var key := event as InputEventKey
-	if key == null or not key.pressed or key.echo:
-		return
-	if key.physical_keycode == KEY_G:
+	if event.is_action_pressed(&"stats"):
 		policies_panel.hide()
 		inventions_panel.hide()
 		_stats_panel.toggle()
 		get_viewport().set_input_as_handled()
-	elif key.physical_keycode == KEY_T:
+		return
+	if event.is_action_pressed(&"policies"):
 		_toggle_policies()
 		get_viewport().set_input_as_handled()
-	elif key.physical_keycode == KEY_I:
+		return
+	if event.is_action_pressed(&"inventions"):
 		_toggle_inventions()
 		get_viewport().set_input_as_handled()
-	elif key.physical_keycode == KEY_ESCAPE:
+		return
+	var key := event as InputEventKey
+	if key == null or not key.pressed or key.echo:
+		return
+	if key.physical_keycode == KEY_ESCAPE:
 		# Esc closes whatever is open; with nothing open, no tool in hand and
 		# no building selected, it opens the menu. Otherwise it is left for
 		# the build controller, which cancels or deselects.
@@ -168,6 +180,11 @@ func sync_after_load() -> void:
 	build_bar.set_tier(_city.tier)
 	BuildingCard.city_tier = _city.tier
 	_refresh_warnings()
+	_scenario_panel.refresh()
+
+
+## Bring the scenario panel up to date, after its goal's progress changed.
+func refresh_scenario() -> void:
 	_scenario_panel.refresh()
 
 
@@ -314,11 +331,18 @@ func show_build_mode(mode: BuildController.Mode, def: BuildingDef) -> void:
 				_hint_base = "Road (%d Crowns per tile, %d across water)   |   Click and drag to lay   |   Right click / Esc: cancel" % [def.cost, def.water_cost]
 			else:
 				var limit := "   |   One per city" if def.unique else ""
-				_hint_base = "%s (%d Crowns)%s   |   R: rotate   |   Right click / Esc: cancel" % [def.display_name, def.cost, limit]
+				_hint_base = "%s (%d Crowns)%s   |   Drag for a row   |   R: rotate   |   Right click / Esc: cancel" % [def.display_name, def.cost, limit]
 		BuildController.Mode.DEMOLISHING:
 			_hint_base = "Demolish   |   Left click: remove   |   Right click / Esc: cancel"
 		_:
 			_hint_base = ""
+	_refresh_hint()
+
+
+## A building has been picked up to be moved: say so in the hint line.
+func show_move_hint(def: BuildingDef, cost: int) -> void:
+	_hint_base = "Moving %s (%d Crowns)   |   R: rotate   |   Right click / Esc: cancel" % [
+			def.display_name, cost]
 	_refresh_hint()
 
 
@@ -328,8 +352,19 @@ func show_ground_bonus(factor: float) -> void:
 	_refresh_hint()
 
 
+## While placing, show what the building under the ghost would reach.
+func show_reach_note(note: String) -> void:
+	_reach_note = note
+	_refresh_hint()
+
+
 func _refresh_hint() -> void:
 	var text := _hint_base
+	# The hints are written with the rotate key's usual letter; show whatever
+	# it is set to now.
+	text = text.replace("R: rotate", "%s: rotate" % GameSettings.key_label(&"build_rotate"))
 	if not text.is_empty() and _ground_bonus > 1.001:
 		text += "   |   Ground here: +%d%% output" % roundi((_ground_bonus - 1.0) * 100.0)
+	if not text.is_empty() and not _reach_note.is_empty():
+		text += "   |   %s" % _reach_note
 	_hint_label.text = text

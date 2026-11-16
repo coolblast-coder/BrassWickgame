@@ -78,10 +78,13 @@ func building_at(cell: Vector2i) -> Building:
 
 ## True if every cell is on the map, empty, and on ground that a building of
 ## kind `def` can stand on. Nothing stands on rock; only roads cross water.
-func can_place(cells: Array[Vector2i], def: BuildingDef = null) -> bool:
+## Cells taken by `ignore` count as empty, for a building being moved.
+func can_place(cells: Array[Vector2i], def: BuildingDef = null, ignore: Building = null) -> bool:
 	var bridges := def != null and def.is_road
 	for cell in cells:
-		if not is_in_bounds(cell) or _occupancy.has(cell):
+		if not is_in_bounds(cell):
+			return false
+		if _occupancy.has(cell) and (ignore == null or _occupancy[cell] != ignore):
 			return false
 		if terrain != null and not terrain.is_buildable(cell) and not (bridges and is_water(cell)):
 			return false

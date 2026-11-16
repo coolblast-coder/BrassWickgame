@@ -23,7 +23,7 @@ const FIRE_CHANCE: Array[float] = [0.5, 1.0, 1.5]
 const BREAKDOWN_CHANCE: Array[float] = [0.75, 1.0, 1.25]
 
 ## What a scenario asks for.
-enum Goal { NONE, POPULATION, REACH_DAY, POPULATION_AND_CROWNS, CLOCKTOWER }
+enum Goal { NONE, POPULATION, REACH_DAY, POPULATION_AND_CROWNS, CLOCKTOWER, TUTORIAL }
 
 ## The scenarios, in menu order: name, what to tell the player, the kind of
 ## goal, its target (citizens, or the day to reach), a second target (Crowns,
@@ -39,7 +39,13 @@ const SCENARIOS: Array[Array] = [
 			Goal.POPULATION_AND_CROWNS, 400, 3000, 200, 1103],
 	["Metropolis", "Reach 1,000 citizens by day 320.", Goal.POPULATION, 1000, 0, 320, 1104],
 	["The Clocktower", "Finish building the Clocktower by day 400.", Goal.CLOCKTOWER, 0, 0, 400, 1105],
+	["First Steps", "A guided first game: one task at a time, on gentle terms with no surprises.",
+			Goal.TUTORIAL, 0, 0, 0, 1100],
 ]
+## The order the scenarios are offered in on the title screen, as indexes
+## into SCENARIOS. New scenarios go at the end of SCENARIOS, so that saved
+## cities keep pointing at the right one, and are placed here.
+const MENU_ORDER: Array[int] = [0, 6, 1, 2, 3, 4, 5]
 
 ## Twists: optional changes to the rules, each switched on or off on the
 ## title screen. Some make the game harder, some easier.
@@ -97,6 +103,17 @@ static func goal_text() -> String:
 	return SCENARIOS[scenario][1]
 
 
+## True in the guided first game, which is always played on the gentlest
+## terms and without random events, whatever was chosen.
+static func is_tutorial() -> bool:
+	return SCENARIOS[scenario][2] == Goal.TUTORIAL
+
+
+## The difficulty in force: the one chosen, or the gentlest in the tutorial.
+static func _level() -> Difficulty:
+	return Difficulty.EASY if is_tutorial() else difficulty
+
+
 static func has_goal() -> bool:
 	return SCENARIOS[scenario][2] != Goal.NONE
 
@@ -126,6 +143,8 @@ static func judge(city: CityState, grid: CityGrid) -> int:
 			met = city.population >= target and city.crowns >= second
 		Goal.CLOCKTOWER:
 			met = _has_clocktower(grid)
+		Goal.TUTORIAL:
+			met = Tutorial.finished()
 	if met:
 		return 1
 	return -1 if deadline > 0 and city.day > deadline else 0
@@ -148,6 +167,8 @@ static func progress_text(city: CityState, grid: CityGrid) -> String:
 			parts.append("Crowns %d / %d" % [city.crowns, second])
 		Goal.CLOCKTOWER:
 			parts.append("Clocktower: %s" % ("built" if _has_clocktower(grid) else "not yet built"))
+		Goal.TUTORIAL:
+			return Tutorial.describe()
 	if deadline > 0:
 		var left := deadline - city.day + 1
 		parts.append("%d %s left" % [maxi(left, 0), "day" if left == 1 else "days"])
@@ -162,23 +183,23 @@ static func _has_clocktower(grid: CityGrid) -> bool:
 
 
 static func difficulty_name() -> String:
-	return DIFFICULTY_NAMES[difficulty]
+	return DIFFICULTY_NAMES[_level()]
 
 
 static func start_crowns() -> int:
-	return START_CROWNS[difficulty]
+	return START_CROWNS[_level()]
 
 
 static func unrest_gain() -> float:
-	return UNREST_GAIN[difficulty]
+	return UNREST_GAIN[_level()]
 
 
 static func event_chance() -> float:
-	return 0.0 if has_twist(QUIET_TIMES) else EVENT_CHANCE[difficulty]
+	return 0.0 if has_twist(QUIET_TIMES) or is_tutorial() else EVENT_CHANCE[_level()]
 
 
 static func fire_chance() -> float:
-	return FIRE_CHANCE[difficulty] * (TINDERBOX_FIRE_FACTOR if has_twist(TINDERBOX) else 1.0)
+	return FIRE_CHANCE[_level()] * (TINDERBOX_FIRE_FACTOR if has_twist(TINDERBOX) else 1.0)
 
 
 ## Multiplier on the chance of a fire spreading to a neighbour.
@@ -192,7 +213,7 @@ static func coal_yield() -> float:
 
 
 static func breakdown_chance() -> float:
-	return BREAKDOWN_CHANCE[difficulty]
+	return BREAKDOWN_CHANCE[_level()]
 
 
 static func to_save() -> Dictionary:
@@ -200,7 +221,8 @@ static func to_save() -> Dictionary:
 	for name in twist_names():
 		twists.append(name)
 	return {"difficulty": int(difficulty), "scenario": scenario,
-			"scenario_settled": scenario_settled, "twists": twists}
+			"scenario_settled": scenario_settled, "twists": twists,
+			"tutorial_step": Tutorial.step, "tutorial_overlay": Tutorial.overlay_seen}
 
 
 ## Take on the terms of a saved city. A save from before there were any is
@@ -209,6 +231,8 @@ static func from_save(data: Dictionary) -> void:
 	difficulty = clampi(int(data.get("difficulty", Difficulty.NORMAL)), 0, DIFFICULTY_NAMES.size() - 1) as Difficulty
 	scenario = clampi(int(data.get("scenario", 0)), 0, SCENARIOS.size() - 1)
 	scenario_settled = bool(data.get("scenario_settled", false))
+	Tutorial.step = int(data.get("tutorial_step", 0))
+	Tutorial.overlay_seen = bool(data.get("tutorial_overlay", false))
 	var saved: Array = data.get("twists", [])
 	for entry: Array in TWISTS:
 		_twists[entry[0]] = entry[1] in saved

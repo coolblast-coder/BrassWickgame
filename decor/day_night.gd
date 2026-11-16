@@ -6,7 +6,8 @@ extends Node
 ##
 ## At fast speed a day lasts only a few seconds, and a night every few
 ## seconds would be a strobe, so the cycle fades out and the city stays in
-## daylight. N switches the cycle off and on.
+## daylight. The cycle can be switched off in the settings, or with its key
+## (N unless changed).
 
 ## Where in the day (0 to 1) dusk begins, night is full, and dawn ends.
 const DUSK_START := 0.66
@@ -26,9 +27,6 @@ const NIGHT_FOG := Color(0.1, 0.12, 0.18)
 ## Brightness of lit windows by day and at night.
 const WINDOW_GLOW_DAY := 0.6
 const WINDOW_GLOW_NIGHT := 2.4
-
-## Switched with N.
-var enabled: bool = true
 
 var _sun: DirectionalLight3D
 var _environment: Environment
@@ -65,15 +63,14 @@ func setup(sun: DirectionalLight3D, environment: Environment, clock: GameClock) 
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	var key := event as InputEventKey
-	if key != null and key.pressed and not key.echo and key.physical_keycode == KEY_N:
-		enabled = not enabled
+	if event.is_action_pressed(&"day_night"):
+		GameSettings.set_day_night(not GameSettings.day_night)
 
 
 func _process(delta: float) -> void:
 	if _clock == null:
 		return
-	var wanted := 1.0 if enabled and _clock.speed == GameClock.NORMAL_SPEED else 0.0
+	var wanted := 1.0 if GameSettings.day_night and _clock.speed == GameClock.NORMAL_SPEED else 0.0
 	_strength = move_toward(_strength, wanted, BLEND_SPEED * delta)
 
 	var time := _clock.day_progress()

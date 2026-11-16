@@ -21,7 +21,7 @@ const LIST: Array[Array] = [
 	[&"fire_chief", "Fire Chief", "Have a Fire Brigade put out a fire."],
 	[&"councillor", "Friend of the Council", "Meet five of the council's requests in one city."],
 	[&"landmark", "Landmark", "Finish building the Clocktower."],
-	[&"scenario", "By the Book", "Win any scenario."],
+	[&"scenario", "By the Book", "Win any scenario other than First Steps."],
 	[&"harsh_city", "Against the Odds", "Grow into a City on Harsh difficulty."],
 ]
 

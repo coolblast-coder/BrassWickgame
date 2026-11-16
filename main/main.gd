@@ -32,6 +32,12 @@ var _paused_by_event: bool = false
 ## True while a scenario's result is on screen with the clock stopped.
 var _paused_by_result: bool = false
 
+## The game saves itself to the autosave slot every this many days.
+const AUTOSAVE_DAYS := 10
+## How often the guided first game checks whether its task has been done.
+const TUTORIAL_CHECK_SECONDS := 1.0
+var _tutorial_wait: float = 0.0
+
 @onready var _tile_cursor: TileCursor = $TileCursor
 @onready var _hud: HUD = $HUD
 @onready var _buildings: Node3D = $Buildings
@@ -65,9 +71,14 @@ func _ready() -> void:
 	_build_controller.setup(grid, city, _tile_cursor, _buildings)
 	_build_controller.mode_changed.connect(_hud.show_build_mode)
 	_build_controller.ground_bonus_changed.connect(_hud.show_ground_bonus)
+	_build_controller.reach_note_changed.connect(_hud.show_reach_note)
+	_build_controller.undone.connect(_on_undone)
 	_build_controller.selection_changed.connect(_hud.show_selection)
 	_hud.repair_pressed.connect(_build_controller.repair_selected)
 	_hud.power_pressed.connect(_build_controller.toggle_selected_power)
+	_hud.upgrade_pressed.connect(_build_controller.upgrade_selected)
+	_hud.move_pressed.connect(_build_controller.start_moving)
+	_build_controller.move_started.connect(_hud.show_move_hint)
 	_hud.power_pressed.connect(func() -> void: _sound.play(&"click", -8.0))
 	_hud.restart_pressed.connect(_restart)
 	_hud.keep_playing_pressed.connect(_on_keep_playing)
@@ -137,13 +148,33 @@ func _ready() -> void:
 		# is still to be decided.
 		city.crowns = GameRules.start_crowns()
 		GameRules.scenario_settled = false
+		Tutorial.reset()
 	_hud.game_menu.set_terms(GameRules.difficulty_name())
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if _road_access_dirty:
 		_road_access_dirty = false
 		_refresh_road_access()
+	if GameRules.is_tutorial() and not _game_over:
+		_tutorial_wait -= delta
+		if _tutorial_wait <= 0.0:
+			_tutorial_wait = TUTORIAL_CHECK_SECONDS
+			_check_tutorial()
+
+
+## In the guided first game: see whether the task in hand has been done,
+## and if so say so and show the next.
+func _check_tutorial() -> void:
+	var done := Tutorial.advance(city, grid)
+	if done.is_empty():
+		return
+	_sound.play(&"repair", -8.0)
+	if Tutorial.finished():
+		_hud.show_notice("Task done: %s" % done, "That was the last one. Well done.")
+	else:
+		_hud.show_notice("Task done: %s" % done, "Next: %s" % Tutorial.TASKS[Tutorial.step][0])
+	_hud.refresh_scenario()
 
 
 ## Tell the HUD which building the mouse is over, for its hover card. Roads
@@ -156,6 +187,7 @@ func _on_cell_hovered(cell: Vector2i, in_bounds: bool) -> void:
 
 
 func _on_overlay_mode_changed(_mode: OverlayView.Mode) -> void:
+	Tutorial.overlay_seen = true
 	_hud.build_bar.set_overlay_name(_overlay.mode_name())
 	_hud.show_legend(_overlay.legend())
 
@@ -207,7 +239,8 @@ func _judge_scenario() -> void:
 		_clock.toggle_pause()
 	_event_sounded = true
 	ScoreBoard.enter(city, "Won" if outcome > 0 else "Out of time", terrain.map_seed)
-	if outcome > 0:
+	# The guided first game is a lesson, not a scenario to be proud of winning.
+	if outcome > 0 and not GameRules.is_tutorial():
 		_announce([Achievements.earn(&"scenario")])
 	if outcome > 0:
 		_sound.play(&"event")
@@ -236,7 +269,8 @@ func _on_request_finished(success: bool, title: String, message: String) -> void
 
 
 func _on_fire_started(building: Building) -> void:
-	_hud.show_notice("Fire!", "The %s is alight. Put it out (select it, then F), or it will spread." % building.def.display_name)
+	_hud.show_notice("Fire!", "The %s is alight. Put it out (select it, then %s), or it will spread." % [
+			building.def.display_name, GameSettings.key_label(&"repair")])
 	_event_sounded = true
 	_sound.play(&"breakdown", -2.0)
 
@@ -245,6 +279,13 @@ func _on_burned_down(display_name: String) -> void:
 	_hud.show_notice("Burned down", "The %s has burned to the ground." % display_name)
 	_event_sounded = true
 	_sound.play(&"demolish", -2.0)
+
+
+func _on_undone(refund: int) -> void:
+	if refund >= 0:
+		_hud.show_notice("Undone", "%d Crowns back in the treasury." % refund)
+	else:
+		_hud.show_notice("Nothing to undo", "Only a building still under construction, or road laid today, can be taken back.")
 
 
 ## A Buy button for an invention was pressed.
@@ -284,17 +325,37 @@ func _on_menu_toggled(open: bool) -> void:
 			_clock.toggle_pause()
 
 
-## F9: save the game to the single save file.
-func save_game() -> void:
+## Save the city to a slot by hand: the given one, or the one last used
+## (F9).
+func save_game(slot: String = "") -> void:
 	if _game_over:
 		return
 	if _events.has_pending():
 		_hud.show_notice("Decide first", "The game cannot be saved while an event awaits your decision.")
 		return
+	if slot.is_empty():
+		slot = SaveGame.last_slot
+	var saved := _write_save(slot)
+	if saved:
+		_hud.show_notice("Saved to %s" % SaveGame.slot_name(slot), "Day %d. F10 loads the newest save." % _clock.day)
+	else:
+		_hud.show_notice("Could not save", "The save file could not be written.")
+	_sound.play(&"click" if saved else &"error", -6.0)
+	_hud.game_menu.refresh_slots()
+
+
+## Write the whole city to a slot. True if the file was written.
+func _write_save(slot: String) -> bool:
 	var buildings := []
 	for building in grid.all_buildings:
 		buildings.append(building.to_save())
-	var saved := SaveGame.write({
+	return SaveGame.write({
+		"summary": {
+			"day": _clock.day, "population": city.population, "tier": city.tier_name(),
+			"scenario": GameRules.scenario_name(), "difficulty": GameRules.difficulty_name(),
+			"saved_at": Time.get_unix_time_from_system(),
+			"date": Time.get_datetime_string_from_system(false, true).left(16),
+		},
 		"map_seed": terrain.map_seed,
 		"rules": GameRules.to_save(),
 		"clock": _clock.to_save(),
@@ -307,20 +368,18 @@ func save_game() -> void:
 		"council": _council.to_save(),
 		"cleared_trees": _vegetation.to_save(),
 		"buildings": buildings,
-	})
-	if saved:
-		_hud.show_notice("Game saved", "Day %d. Press F10 to load it." % _clock.day)
-	else:
-		_hud.show_notice("Could not save", "The save file could not be written.")
-	_sound.play(&"click" if saved else &"error", -6.0)
+	}, slot)
 
 
-## F10: load the save file, by restarting the scene with it.
-func load_game() -> void:
-	if SaveGame.load_from_disk():
+## Load a slot by restarting the scene with it: the given one, or whichever
+## was saved most recently (F10).
+func load_game(slot: String = "") -> void:
+	if slot.is_empty():
+		slot = SaveGame.latest_slot()
+	if not slot.is_empty() and SaveGame.load_from_disk(slot):
 		get_tree().reload_current_scene()
 	else:
-		_hud.show_notice("Nothing to load", "There is no saved game yet. Press F9 to save.")
+		_hud.show_notice("Nothing to load", "There is no saved city yet. Press F9 to save.")
 		_sound.play(&"error", -10.0)
 
 
@@ -420,6 +479,10 @@ func _on_day_ended(day: int) -> void:
 	_council.day_passed(day)
 	_judge_scenario()
 	_announce(Achievements.check(city, grid, inventions, _council))
+	# The autosave: quiet, and never while an event is waiting on a choice,
+	# since that choice could not be saved with it.
+	if day % AUTOSAVE_DAYS == 0 and not _events.has_pending():
+		_write_save(SaveGame.AUTOSAVE)
 	# Announce a change of season, once the seasons matter.
 	var season := Seasons.of_day(day + 1)
 	if season != Seasons.of_day(day):

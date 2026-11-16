@@ -77,11 +77,13 @@ func _ready() -> void:
 	scenario_label.custom_minimum_size.x = 74.0
 	scenario_row.add_child(scenario_label)
 	var scenario_box := OptionButton.new()
-	for entry: Array in GameRules.SCENARIOS:
-		scenario_box.add_item(entry[0])
+	# Offered in menu order, each carrying its index into the scenario list.
+	for index in GameRules.MENU_ORDER:
+		scenario_box.add_item(GameRules.SCENARIOS[index][0], index)
 	scenario_box.custom_minimum_size.x = 236.0
-	scenario_box.select(GameRules.scenario)
-	scenario_box.item_selected.connect(_on_scenario_chosen)
+	scenario_box.select(maxi(0, GameRules.MENU_ORDER.find(GameRules.scenario)))
+	scenario_box.item_selected.connect(
+			func(row: int) -> void: _on_scenario_chosen(scenario_box.get_item_id(row)))
 	scenario_row.add_child(scenario_box)
 	_scenario_note = Label.new()
 	_scenario_note.custom_minimum_size.x = 320.0
@@ -110,8 +112,8 @@ func _ready() -> void:
 	_difficulty_note.add_theme_font_size_override("font_size", 13)
 	column.add_child(_difficulty_note)
 	_on_difficulty_chosen(GameRules.difficulty)
-	_continue_button = _add_button(column, "Continue saved city", _on_continue)
-	_continue_button.disabled = not SaveGame.exists()
+	_continue_button = _add_button(column, "Load a saved city", _on_continue)
+	_continue_button.disabled = not SaveGame.any_exists()
 	if _continue_button.disabled:
 		_continue_button.tooltip_text = "No saved city yet. Press F9 in the game to save."
 	_add_button(column, "Records", _show_records)
@@ -229,7 +231,9 @@ func _hide_records() -> void:
 func _on_scenario_chosen(index: int) -> void:
 	GameRules.scenario = index
 	_scenario_note.text = GameRules.goal_text()
-	if GameRules.scenario_seed() >= 0:
+	if GameRules.is_tutorial():
+		_scenario_note.text += " Start here if the game is new to you."
+	elif GameRules.scenario_seed() >= 0:
 		_scenario_note.text += " Played on its own map unless you type a seed."
 
 
@@ -244,13 +248,30 @@ func _on_new_city() -> void:
 	get_tree().change_scene_to_file(GAME_SCENE)
 
 
+## Show the save slots, each with what it holds and a button to load it.
 func _on_continue() -> void:
-	if SaveGame.load_from_disk():
+	var list := _open_panel("Load a saved city")
+	for slot in SaveGame.SLOTS:
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 12)
+		list.add_child(row)
+		var load_button := Button.new()
+		load_button.text = "Load"
+		load_button.custom_minimum_size.x = 80.0
+		# Empty slots, and saves from an older version, cannot be loaded.
+		load_button.disabled = not SaveGame.is_loadable(slot)
+		load_button.pressed.connect(_load_slot.bind(slot))
+		row.add_child(load_button)
+		var line := Label.new()
+		line.text = SaveGame.describe(slot)
+		line.add_theme_font_size_override("font_size", 14)
+		row.add_child(line)
+	_add_close(list)
+
+
+func _load_slot(slot: String) -> void:
+	if SaveGame.load_from_disk(slot):
 		get_tree().change_scene_to_file(GAME_SCENE)
-	else:
-		# The file is damaged, or was saved by an older version of the game.
-		_continue_button.disabled = true
-		_continue_button.text = "Saved city cannot be read by this version"
 
 
 func _add_button(column: VBoxContainer, text: String, action: Callable) -> Button:

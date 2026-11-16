@@ -166,6 +166,11 @@ func _gather() -> Array:
 	if city.population > 0 and city.population >= city.housing_capacity \
 			and city.unrest < CitySim.UNREST_MOVE_IN_BELOW:
 		advice.append(["Every home is full: build housing to grow.", null])
+	# The advice is written with the repair key's usual letter; show whatever
+	# it is set to now.
+	var repair_key := "(%s)" % GameSettings.key_label(&"repair")
+	for item: Array in advice:
+		item[0] = str(item[0]).replace("(F)", repair_key)
 	return advice
 
 

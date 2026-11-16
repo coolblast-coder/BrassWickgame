@@ -88,7 +88,7 @@ func _pan(delta: float) -> void:
 		return
 	# Move relative to where the camera faces, staying on the ground plane.
 	var move := Vector3(input.x, 0.0, input.y).rotated(Vector3.UP, yaw)
-	position += move * pan_speed * distance * delta
+	position += move * pan_speed * GameSettings.camera_speed * distance * delta
 	position.x = clampf(position.x, bounds.position.x, bounds.end.x)
 	position.z = clampf(position.z, bounds.position.y, bounds.end.y)
 	position.y = 0.0
@@ -104,7 +104,9 @@ func _notification(what: int) -> void:
 
 
 func _edge_pan_input() -> Vector2:
-	if not edge_pan_enabled or not _mouse_in_window or not get_window().has_focus():
+	if not edge_pan_enabled or not GameSettings.edge_pan:
+		return Vector2.ZERO
+	if not _mouse_in_window or not get_window().has_focus():
 		return Vector2.ZERO
 	if Input.is_mouse_button_pressed(MOUSE_BUTTON_MIDDLE):
 		return Vector2.ZERO

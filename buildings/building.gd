@@ -242,6 +242,15 @@ func refresh_windows() -> void:
 		_windows[i].material_override = glow if i < lit else dark
 
 
+## Put the building somewhere else, as it stands. The caller looks after
+## the grid.
+func relocate(to_origin: Vector2i, steps: int) -> void:
+	origin = to_origin
+	rotation_steps = posmod(steps, 4)
+	name = "%s_%d_%d" % [def.id, origin.x, origin.y]
+	transform = transform_for(def, origin, rotation_steps)
+
+
 ## Record whether the Town Hall's road network reaches this building, and
 ## show it: cut-off road tiles turn a dusty brown, and other buildings get a
 ## red marker above the roof.

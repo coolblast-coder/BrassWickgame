@@ -38,6 +38,10 @@ enum Category { INFRASTRUCTURE, HOUSING, SUPPLY, INDUSTRY, SERVICES }
 
 @export_group("Economy")
 @export var cost: int = 0
+## The id of the building this one can be upgraded to where it stands, for
+## the difference in price (Tenement to Townhouse). The two must have the
+## same footprint. Empty for none.
+@export var upgrade_to: StringName = &""
 ## Days a new one takes to build; -1 works it out from the footprint.
 @export var build_days: int = -1
 ## For roads: the cost of a tile laid on water, where it becomes a bridge.

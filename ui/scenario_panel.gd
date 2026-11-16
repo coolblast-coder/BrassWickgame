@@ -36,7 +36,13 @@ func bind(grid: CityGrid, city: CityState) -> void:
 
 func refresh() -> void:
 	visible = GameRules.has_goal() and not GameRules.scenario_settled
-	if visible:
+	if not visible:
+		return
+	if GameRules.is_tutorial():
+		# The task in hand says it all; the scenario's own blurb would only
+		# push it down the screen.
+		_label.text = "%s\n%s" % [GameRules.scenario_name(), GameRules.progress_text(_city, _grid)]
+	else:
 		_label.text = "%s\n%s\n%s" % [
 				GameRules.scenario_name(), GameRules.goal_text(),
 				GameRules.progress_text(_city, _grid)]

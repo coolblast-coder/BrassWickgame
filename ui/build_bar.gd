@@ -37,9 +37,14 @@ var _demolish_button: Button
 var _overlay_button: Button
 ## The city's tier; buildings of a higher tier are locked.
 var _tier: int = 0
+## The tool buttons that show a key: each a button, its action and its name.
+var _tools: Array[Array] = []
+var _overlay_name: String = "none"
 
 
 func _ready() -> void:
+	# The tool buttons show their keys, so the keys must be known first.
+	GameSettings.ensure_ready()
 	var defs := BuildingCatalog.all()
 	var names := BuildingCatalog.CATEGORY_NAMES
 	for c in names.size():
@@ -69,7 +74,7 @@ func _ready() -> void:
 
 	# Everything that is not a building sits on a row of its own, below.
 	var tool_row := _make_row()
-	_demolish_button = _make_button(tool_row, "X  Demolish")
+	_demolish_button = _make_tool(tool_row, &"demolish_mode", "Demolish")
 	_demolish_button.toggle_mode = true
 	_demolish_button.pressed.connect(func() -> void: demolish_pressed.emit())
 
@@ -77,11 +82,11 @@ func _ready() -> void:
 	_overlay_button.pressed.connect(func() -> void: overlay_pressed.emit())
 	set_overlay_name("none")
 	tool_row.add_child(VSeparator.new())
-	var stats_button := _make_button(tool_row, "G  Stats")
+	var stats_button := _make_tool(tool_row, &"stats", "Stats")
 	stats_button.pressed.connect(func() -> void: stats_pressed.emit())
-	var policies_button := _make_button(tool_row, "T  Policies")
+	var policies_button := _make_tool(tool_row, &"policies", "Policies")
 	policies_button.pressed.connect(func() -> void: policies_pressed.emit())
-	var inventions_button := _make_button(tool_row, "I  Inventions")
+	var inventions_button := _make_tool(tool_row, &"inventions", "Inventions")
 	inventions_button.pressed.connect(func() -> void: inventions_pressed.emit())
 	var menu_button := _make_button(tool_row, "Esc  Menu")
 	menu_button.pressed.connect(func() -> void: menu_pressed.emit())
@@ -134,7 +139,23 @@ func toggle_category(category: int) -> void:
 
 ## Show which map overlay is active on the Overlay button.
 func set_overlay_name(overlay_name: String) -> void:
-	_overlay_button.text = "O  Overlay: %s" % overlay_name
+	_overlay_name = overlay_name
+	_overlay_button.text = "%s  Overlay: %s" % [GameSettings.key_label(&"overlay_cycle"), overlay_name]
+
+
+## The keys were changed: put the new ones on the tool buttons.
+func refresh_keys() -> void:
+	for tool: Array in _tools:
+		var button: Button = tool[0]
+		button.text = "%s  %s" % [GameSettings.key_label(tool[1]), tool[2]]
+	set_overlay_name(_overlay_name)
+
+
+## A tool button whose label starts with the key for `action`.
+func _make_tool(row: HBoxContainer, action: StringName, text: String) -> Button:
+	var button := _make_button(row, "%s  %s" % [GameSettings.key_label(action), text])
+	_tools.append([button, action, text])
+	return button
 
 
 ## Show the Demolish button as active or not.
